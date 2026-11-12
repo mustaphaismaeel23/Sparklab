@@ -1,6 +1,6 @@
 # SPARKLAB QR Code Attendance Management System
 
-A full-stack Next.js application for SPARKLAB Creativity and Innovation Hub. Admins register people and create a shared, time-limited attendance QR code. Participants scan it with a smartphone camera (or open the link from their native camera), enter their permanent SPARKLAB ID, and the server records attendance once per session.
+A full-stack Next.js application for SPARKLAB Creativity and Innovation Hub. Admins register people and start time-limited attendance sessions. Participants scan a reusable printed QR code with a phone camera, enter their short ID, and check in only when the server verifies their location is within the office geofence.
 
 ## Technology
 
@@ -8,7 +8,7 @@ A full-stack Next.js application for SPARKLAB Creativity and Innovation Hub. Adm
 - Tailwind CSS 4
 - PostgreSQL + Prisma 6
 - Signed, HTTP-only admin session cookie (Jose JWT)
-- QR generation (`qrcode`) and browser scanning (`html5-qrcode`)
+- Reusable QR generation (`qrcode`) and phone-camera scanning
 - Excel (`exceljs`) and PDF (`pdfkit`) reports
 
 ## Requirements
@@ -32,6 +32,9 @@ A full-stack Next.js application for SPARKLAB Creativity and Innovation Hub. Adm
    DATABASE_URL="postgresql://postgres:YOUR_PASSWORD@localhost:5432/sparklab_attendance?schema=public"
    JWT_SECRET="use-a-random-secret-of-at-least-32-characters"
    APP_URL="http://localhost:3000"
+   OFFICE_LATITUDE="YOUR_OFFICE_LATITUDE"
+   OFFICE_LONGITUDE="YOUR_OFFICE_LONGITUDE"
+   OFFICE_RADIUS_METERS="100"
    ADMIN_NAME="SPARKLAB Administrator"
    ADMIN_EMAIL="admin@yourdomain.com"
    ADMIN_PASSWORD="use-a-strong-unique-password"
@@ -77,21 +80,22 @@ The command updates the password for that existing administrator. It does not cr
 ## How to use
 
 1. Open **Users** and register students and staff. The system generates short IDs such as `S001` for students and `T001` for staff (up to 999 in each category).
-2. Open **QR Session**, choose a duration and create a session.
-3. Display the generated QR code on the SPARKLAB screen. The QR points to the mobile attendance page and contains a random session token; the database stores only its SHA-256 hash.
-4. A participant scans the QR with the normal phone camera. The browser opens the attendance page. They enter their SPARKLAB ID and submit.
-5. The server checks the session, user registration and active status, then creates an attendance row. A database unique constraint prevents the same person from attending twice in one session.
+2. Open **QR Session** and download the reusable QR code once. Print it and post it at the attendance table.
+3. Before each attendance period, choose a duration and start a session. The printed QR stays the same; it works only while a session is active.
+4. Participants scan the posted QR with their phone camera, enter their short ID (`S001` or `T001`), and allow location access.
+5. The server checks the active session, registered person, and GPS position against the configured office radius, then records attendance. It does not save the participant's coordinates. A database unique constraint prevents duplicate attendance within the same session.
 6. Admins can search users and attendance, activate/deactivate users, edit basic user details, and export attendance to Excel or PDF.
 
 ## Important deployment notes
 
-- Camera access requires HTTPS on deployed sites. On localhost, browsers generally allow camera access without HTTPS.
-- Set `APP_URL` to the public HTTPS origin before deployment; it is used when generating the QR destination.
+- Geolocation requires HTTPS on deployed sites. On localhost, browsers generally allow location access without HTTPS.
+- Set `APP_URL` to the public HTTPS origin before deployment; the reusable QR points to this address.
+- Set `OFFICE_LATITUDE`, `OFFICE_LONGITUDE`, and `OFFICE_RADIUS_METERS` on the server. Check-ins are rejected unless the reported GPS position and its accuracy fit within the configured radius.
 - Use a managed PostgreSQL database. Apply schema changes before deploying; this project currently uses `prisma db push` and has no committed migration history.
 - Set strong, private `JWT_SECRET` and admin credentials. Do not commit `.env`.
 - `.env.example` contains placeholders only; keep `.env` out of Git.
 - Set the deployment/runtime timezone to UTC if possible; attendance timestamps are stored as server timestamps and displayed in `Africa/Lagos`.
-- The shared QR is a bearer link for an attendance session. A participant who has the link can submit an ID while the session is open. This design verifies registration, not the physical identity of the person. For stronger presence assurance, display a rotating QR or add a second in-room check.
+- GPS readings can be inaccurate indoors and can be spoofed. The geofence is a basic presence check, not strong identity proof; the app does not store coordinates.
 - Add provider/edge rate limiting (for example, Cloudflare or your hosting platform) to `/api/attendance/verify` before public production use. In-memory rate limiting is intentionally not used because it is unreliable across serverless instances.
 - Back up PostgreSQL regularly and restrict admin access to trusted personnel.
 
@@ -105,6 +109,8 @@ The command updates the password for that existing administrator. It does not cr
    - `DATABASE_URL`: Supabase connection string. Use the Supabase pooler for Vercel serverless deployments.
    - `JWT_SECRET`: a private random secret of at least 32 characters.
    - `APP_URL`: your deployed HTTPS origin, for example `https://your-project.vercel.app`.
+   - `OFFICE_LATITUDE` and `OFFICE_LONGITUDE`: the office center coordinates.
+   - `OFFICE_RADIUS_METERS`: the allowed radius, such as `100`.
 6. Deploy. The build script generates Prisma Client and builds Next.js. Set `APP_URL` to the final Vercel domain and redeploy if the domain changes.
 
 Keep `ADMIN_EMAIL` and `ADMIN_PASSWORD` local for initial seeding or password resets; never commit them or place them in client-side code.
@@ -113,7 +119,7 @@ Keep `ADMIN_EMAIL` and `ADMIN_PASSWORD` local for initial seeding or password re
 
 - `/admin/login` — administrator login
 - `/admin` — admin dashboard, users, QR session and attendance reports
-- `/attendance?session=...` — participant attendance page
+- `/attendance` — participant page opened by the reusable printed QR
 - `/api/people` — authenticated registration/listing
 - `/api/sessions` — authenticated session and QR generation
 - `/api/attendance/verify` — public attendance verification
@@ -122,4 +128,4 @@ Keep `ADMIN_EMAIL` and `ADMIN_PASSWORD` local for initial seeding or password re
 
 ## Notes
 
-The system intentionally has no student/staff accounts: the participant flow uses the permanent unique ID after scanning the shared QR. Only administrators can register and manage people. The first administrator is created by the seed script.
+The system intentionally has no student/staff accounts: participants use their short unique ID after scanning the posted QR. Only administrators can register and manage people. The first administrator is created by the seed script.
