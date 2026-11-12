@@ -7,7 +7,7 @@
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "tsx --test src/lib/geofence.test.ts src/lib/usernames.test.ts src/lib/attendance-days.test.ts",
+    "test": "tsx --test src/lib/geofence.test.ts src/lib/usernames.test.ts src/lib/attendance-days.test.ts src/lib/prisma-url.test.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",

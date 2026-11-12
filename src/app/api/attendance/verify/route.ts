@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { isWithinGeofence } from '@/lib/geofence';
 import { jsonError } from '@/lib/http';
 import { prisma } from '@/lib/prisma';
+import { getAttendanceDayKey } from '@/lib/attendance-days';
 
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');
 const schema = z.object({
@@ -52,11 +53,11 @@ export async function POST(request: Request) {
     const session = input.sessionToken
       ? await prisma.attendanceSession.findUnique({ where: { tokenHash: hash(input.sessionToken) } })
       : await prisma.attendanceSession.findFirst({
-          where: { active: true, startsAt: { lte: now }, endsAt: { gt: now } },
+          where: { active: true, startsAt: { lte: now }, OR: [{ endsAt: null }, { endsAt: { gt: now } }] },
           orderBy: { createdAt: 'desc' }
         });
 
-    if (!session || !session.active || session.startsAt > now || session.endsAt <= now) {
+    if (!session || !session.active || session.startsAt > now || (session.endsAt !== null && session.endsAt <= now)) {
       return jsonError('No active attendance session. Please ask SPARKLAB staff to open one.', 410);
     }
 
@@ -77,7 +78,21 @@ export async function POST(request: Request) {
     }
 
     try {
-      const record = await prisma.attendance.create({ data: { personId: person.id, sessionId: session.id } });
+      const attendanceDay = getAttendanceDayKey(now);
+      const attendanceSession = session.endsAt === null
+        ? await prisma.attendanceSession.upsert({
+            where: { tokenHash: hash(`daily:${session.id}:${attendanceDay}`) },
+            update: {},
+            create: {
+              tokenHash: hash(`daily:${session.id}:${attendanceDay}`),
+              title: `${session.title} (${attendanceDay})`,
+              active: false,
+              startsAt: session.startsAt,
+              endsAt: null
+            }
+          })
+        : session;
+      const record = await prisma.attendance.create({ data: { personId: person.id, sessionId: attendanceSession.id } });
       return NextResponse.json({
         message: 'ATTENDANCE SUCCESSFUL!',
         attendance: {
@@ -92,7 +107,10 @@ export async function POST(request: Request) {
       });
     } catch (error: unknown) {
       if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2002') {
-        return jsonError('ATTENDANCE ALREADY RECORDED. You have successfully marked your attendance for this session.', 409);
+        const duplicateMessage = session.endsAt === null
+          ? 'ATTENDANCE ALREADY RECORDED. You have already checked in today.'
+          : 'ATTENDANCE ALREADY RECORDED. You have successfully marked your attendance for this session.';
+        return jsonError(duplicateMessage, 409);
       }
       throw error;
     }

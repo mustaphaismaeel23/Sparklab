@@ -49,7 +49,7 @@ model AttendanceSession {
   title      String
   active     Boolean      @default(true)
   startsAt   DateTime     @default(now())
-  endsAt     DateTime
+  endsAt     DateTime?
   createdAt  DateTime     @default(now())
   attendance Attendance[]
 

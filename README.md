@@ -1,6 +1,6 @@
 # SPARKLAB QR Code Attendance Management System
 
-A full-stack Next.js application for SPARKLAB Creativity and Innovation Hub. Admins register people and start time-limited attendance sessions. Participants scan a reusable printed QR code with a phone camera, enter their username, and check in only when the server verifies their location is within the office geofence.
+A full-stack Next.js application for SPARKLAB Creativity and Innovation Hub. Admins register people and start no-limit or time-limited attendance sessions. Participants scan a reusable printed QR code with a phone camera, enter their username, and check in only when the server verifies their location is within the office geofence.
 
 ## Technology
 
@@ -81,9 +81,9 @@ The command updates the password for that existing administrator. It does not cr
 
 1. Open **Users** and register students and staff. Enter a unique username for each person (3–24 letters, numbers, or hyphens; spaces become hyphens).
 2. Open **QR Session** and download the reusable QR code once. Print it and post it at the attendance table.
-3. Before each attendance period, choose a duration and start a session. The printed QR stays the same; it works only while a session is active.
+3. Start an attendance session. **No time limit** is selected by default; the session remains active until you start another one. You can still select a limited duration when needed. The printed QR stays the same.
 4. Participants scan the posted QR with their phone camera, enter their username, and allow location access.
-5. The server checks the active session, registered person, and GPS position against the configured office radius, then records attendance. It does not save the participant's coordinates. A database unique constraint prevents duplicate attendance within the same session.
+5. The server checks the active session, registered person, and GPS position against the configured office radius, then records attendance. It does not save the participant's coordinates. In a no-limit session, each person can check in once per Africa/Lagos calendar day.
 6. Admins can search users and attendance, see each user's distinct attendance-day count, activate/deactivate users, edit details, delete a user with their attendance history, or delete an individual attendance record. Deletions require confirmation. The Attendance tab refreshes when opened and every 10 seconds while visible.
 
 ## Important deployment notes
@@ -112,6 +112,8 @@ The command updates the password for that existing administrator. It does not cr
    - `OFFICE_LATITUDE` and `OFFICE_LONGITUDE`: the office center coordinates.
    - `OFFICE_RADIUS_METERS`: the allowed radius, such as `100`.
 6. Deploy. The build script generates Prisma Client and builds Next.js. Set `APP_URL` to the final Vercel domain and redeploy if the domain changes.
+
+The app automatically enables Prisma's PgBouncer-compatible mode for Supabase Transaction Pooler URLs.
 
 Keep `ADMIN_EMAIL` and `ADMIN_PASSWORD` local for initial seeding or password resets; never commit them or place them in client-side code.
 

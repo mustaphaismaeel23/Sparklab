@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 type Person = { id: string; username: string | null; fullName: string; phone: string; email: string | null; category: 'STUDENT' | 'STAFF'; department: string; active: boolean; registeredAt: string; daysAttended: number };
 type RecordRow = { id: string; name: string; username: string; category: string; department: string; date: string; time: string; status: string; session: string };
-type Session = { id: string; title: string; endsAt: string };
+type Session = { id: string; title: string; endsAt: string | null };
 type Tab = 'overview' | 'people' | 'attendance' | 'session';
 const button = 'rounded-xl px-4 py-2 text-sm font-semibold';
 
@@ -23,7 +23,7 @@ export default function AdminPage() {
   const [attendanceRefresh, setAttendanceRefresh] = useState(0);
   const [qr, setQr] = useState('');
   const [session, setSession] = useState<Session | null>(null);
-  const [duration, setDuration] = useState(120);
+  const [duration, setDuration] = useState<number | null>(null);
   const [sessionTitle, setSessionTitle] = useState('SPARKLAB Attendance');
 
   async function load() {
@@ -283,7 +283,26 @@ export default function AdminPage() {
           </tr>)}</tbody>
         </table>{visibleRecords.length === 0 && <p className="p-8 text-center text-sm text-slate-500">No attendance records found.</p>}</div>
       </div>}
-      {tab === 'session' && <div className="grid gap-5 lg:grid-cols-2"><div className="rounded-2xl border bg-white p-5"><h2 className="font-bold">Create attendance session</h2><p className="mt-1 text-sm text-slate-500">Start a timed session before check-ins. The printed QR code remains the same.</p><label className="mt-4 block text-sm font-medium">Session title<input value={sessionTitle} onChange={event => setSessionTitle(event.target.value)} className="mt-1 w-full rounded-xl border px-3 py-2"/></label><label className="mt-4 block text-sm font-medium">Session duration<select value={duration} onChange={event => setDuration(Number(event.target.value))} className="mt-1 w-full rounded-xl border px-3 py-2"><option value={30}>30 minutes</option><option value={60}>1 hour</option><option value={120}>2 hours</option><option value={240}>4 hours</option><option value={480}>8 hours</option></select></label><button disabled={busy} onClick={() => void createSession()} className="mt-5 w-full rounded-xl bg-blue-700 px-4 py-3 font-semibold text-white">{busy ? 'Creating...' : 'Start attendance session'}</button>{session ? <p className="mt-4 text-sm text-slate-600">Active session: <b>{session.title}</b><br/>Expires: {new Date(session.endsAt).toLocaleString('en-NG', { timeZone: 'Africa/Lagos' })}</p> : <p className="mt-4 text-sm text-amber-700">No active session. Start one before participants check in.</p>}</div><div className="flex min-h-80 flex-col items-center justify-center rounded-2xl border bg-white p-5 text-center">{qr ? <><h2 className="font-bold">Reusable attendance QR code</h2><img src={qr} alt="Reusable SPARKLAB attendance QR code" className="mt-3 w-72 max-w-full"/><p className="mt-2 text-sm text-slate-500">Print this code once and keep it at the attendance table.</p><a href={qr} download="sparklab-attendance-qr.png" className="mt-3 text-sm font-semibold text-blue-700 underline">Download QR to print</a></> : <><div className="text-5xl">▦</div><p className="mt-3 font-semibold">QR code is loading</p></>}</div></div>}
+      {tab === 'session' && <div className="grid gap-5 lg:grid-cols-2">
+        <div className="rounded-2xl border bg-white p-5">
+          <h2 className="font-bold">Create attendance session</h2>
+          <p className="mt-1 text-sm text-slate-500">The printed QR stays the same. A no-limit session remains active until you start another session.</p>
+          <label className="mt-4 block text-sm font-medium">Session title<input value={sessionTitle} onChange={event => setSessionTitle(event.target.value)} className="mt-1 w-full rounded-xl border px-3 py-2"/></label>
+          <label className="mt-4 block text-sm font-medium">Session duration
+            <select value={duration ?? 'unlimited'} onChange={event => setDuration(event.target.value === 'unlimited' ? null : Number(event.target.value))} className="mt-1 w-full rounded-xl border px-3 py-2">
+              <option value="unlimited">No time limit (default)</option>
+              <option value={30}>30 minutes</option>
+              <option value={60}>1 hour</option>
+              <option value={120}>2 hours</option>
+              <option value={240}>4 hours</option>
+              <option value={480}>8 hours</option>
+            </select>
+          </label>
+          <button disabled={busy} onClick={() => void createSession()} className="mt-5 w-full rounded-xl bg-blue-700 px-4 py-3 font-semibold text-white">{busy ? 'Creating...' : 'Start attendance session'}</button>
+          {session ? <p className="mt-4 text-sm text-slate-600">Active session: <b>{session.title}</b>{session.endsAt ? <><br/>Expires: {new Date(session.endsAt).toLocaleString('en-NG', { timeZone: 'Africa/Lagos' })}</> : <><br/>No expiration. Each person can check in once per day.</>}</p> : <p className="mt-4 text-sm text-amber-700">No active session. Start one before participants check in.</p>}
+        </div>
+        <div className="flex min-h-80 flex-col items-center justify-center rounded-2xl border bg-white p-5 text-center">{qr ? <><h2 className="font-bold">Reusable attendance QR code</h2><img src={qr} alt="Reusable SPARKLAB attendance QR code" className="mt-3 w-72 max-w-full"/><p className="mt-2 text-sm text-slate-500">Print this code once and keep it at the attendance table.</p><a href={qr} download="sparklab-attendance-qr.png" className="mt-3 text-sm font-semibold text-blue-700 underline">Download QR to print</a></> : <><div className="text-5xl">▦</div><p className="mt-3 font-semibold">QR code is loading</p></>}</div>
+      </div>}
     </div>
   </main>;
 }

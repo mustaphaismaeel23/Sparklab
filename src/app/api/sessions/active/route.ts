@@ -8,7 +8,7 @@ export async function GET(request: Request) {
   if (!(await getAdmin())) return jsonError('Unauthorized', 401);
 
   const session = await prisma.attendanceSession.findFirst({
-    where: { active: true, endsAt: { gt: new Date() } },
+    where: { active: true, OR: [{ endsAt: null }, { endsAt: { gt: new Date() } }] },
     orderBy: { createdAt: 'desc' }
   });
   const origin = process.env.APP_URL || new URL(request.url).origin;
