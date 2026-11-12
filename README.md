@@ -83,8 +83,8 @@ The command updates the password for that existing administrator. It does not cr
 2. Open **QR Session** and download the reusable QR code once. Print it and post it at the attendance table.
 3. Start an attendance session. **No time limit** is selected by default; the session remains active until you start another one. You can still select a limited duration when needed. The printed QR stays the same.
 4. Participants scan the posted QR with their phone camera, enter their username, and allow location access.
-5. The server checks the active session, registered person, and GPS position against the configured office radius, then records attendance. It does not save the participant's coordinates. In a no-limit session, each person can check in once per Africa/Lagos calendar day.
-6. Admins can search users and attendance, see each user's distinct attendance-day count, activate/deactivate users, edit details, delete a user with their attendance history, or delete an individual attendance record. Deletions require confirmation. The Attendance tab refreshes when opened and every 10 seconds while visible.
+5. The server checks the active session, registered person, and GPS position against the configured office radius, then records attendance. It does not save the participant's coordinates. Each person can check in once per Africa/Lagos calendar day, even if an admin starts multiple sessions that day.
+6. Admins can search users and attendance, see each user's distinct attendance-day count in the user list and attendance records, and export the count to Excel or PDF. Admins can also activate/deactivate users, edit details, delete a user with their attendance history, or delete an individual attendance record. Deletions require confirmation. The Attendance tab refreshes when opened and every 10 seconds while visible.
 
 ## Important deployment notes
 

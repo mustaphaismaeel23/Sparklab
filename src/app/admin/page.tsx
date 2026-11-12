@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from 'react';
 
 type Person = { id: string; username: string | null; fullName: string; phone: string; email: string | null; category: 'STUDENT' | 'STAFF'; department: string; active: boolean; registeredAt: string; daysAttended: number };
-type RecordRow = { id: string; name: string; username: string; category: string; department: string; date: string; time: string; status: string; session: string };
+type RecordRow = { id: string; name: string; username: string; category: string; department: string; date: string; time: string; daysAttended: number; status: string; session: string };
 type Session = { id: string; title: string; endsAt: string | null };
 type Tab = 'overview' | 'people' | 'attendance' | 'session';
 const button = 'rounded-xl px-4 py-2 text-sm font-semibold';
@@ -271,13 +271,14 @@ export default function AdminPage() {
         {attendanceError && <p role="alert" className="mb-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">{attendanceError}</p>}
         <div className="mb-4 flex gap-2"><button onClick={() => void exportReport('xlsx')} className={`${button} bg-green-700 text-white`}>Export Excel</button><button onClick={() => void exportReport('pdf')} className={`${button} bg-slate-800 text-white`}>Export PDF</button></div>
         <div className="overflow-x-auto"><table className="w-full text-left text-sm">
-          <thead className="bg-slate-50 text-slate-500"><tr>{['Name / Username', 'Category', 'Department', 'Date', 'Time', 'Status', 'Action'].map(heading => <th key={heading} className="p-3">{heading}</th>)}</tr></thead>
+          <thead className="bg-slate-50 text-slate-500"><tr>{['Name / Username', 'Category', 'Department', 'Date', 'Time', 'Days attended', 'Status', 'Action'].map(heading => <th key={heading} className="p-3">{heading}</th>)}</tr></thead>
           <tbody>{visibleRecords.map(record => <tr key={record.id} className="border-t">
             <td className="p-3"><b>{record.name}</b><div className="text-xs text-slate-500">@{record.username || 'pending backfill'}</div></td>
             <td className="p-3">{record.category}</td>
             <td className="p-3">{record.department}</td>
             <td className="p-3">{record.date}</td>
             <td className="p-3">{record.time}</td>
+            <td className="p-3">{record.daysAttended}</td>
             <td className="p-3"><span className="rounded-full bg-green-50 px-2 py-1 text-green-700">{record.status}</span></td>
             <td className="p-3"><button disabled={busy} onClick={() => void deleteAttendance(record)} className="text-red-700 underline disabled:opacity-50">Delete</button></td>
           </tr>)}</tbody>

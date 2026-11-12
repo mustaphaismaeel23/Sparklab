@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { isWithinGeofence } from '@/lib/geofence';
 import { jsonError } from '@/lib/http';
 import { prisma } from '@/lib/prisma';
-import { getAttendanceDayKey } from '@/lib/attendance-days';
+import { getAttendanceDayKey, getAttendanceDayRange } from '@/lib/attendance-days';
 
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');
 const schema = z.object({
@@ -79,19 +79,27 @@ export async function POST(request: Request) {
 
     try {
       const attendanceDay = getAttendanceDayKey(now);
-      const attendanceSession = session.endsAt === null
-        ? await prisma.attendanceSession.upsert({
-            where: { tokenHash: hash(`daily:${session.id}:${attendanceDay}`) },
-            update: {},
-            create: {
-              tokenHash: hash(`daily:${session.id}:${attendanceDay}`),
-              title: `${session.title} (${attendanceDay})`,
-              active: false,
-              startsAt: session.startsAt,
-              endsAt: null
-            }
-          })
-        : session;
+      const attendanceDayRange = getAttendanceDayRange(now);
+      const existingToday = await prisma.attendance.findFirst({
+        where: {
+          personId: person.id,
+          checkedAt: { gte: attendanceDayRange.start, lt: attendanceDayRange.end }
+        },
+        select: { id: true }
+      });
+      if (existingToday) return jsonError('ATTENDANCE ALREADY RECORDED. You have already checked in today.', 409);
+
+      const attendanceSession = await prisma.attendanceSession.upsert({
+        where: { tokenHash: hash(`daily:${attendanceDay}`) },
+        update: {},
+        create: {
+          tokenHash: hash(`daily:${attendanceDay}`),
+          title: `${session.title} (${attendanceDay})`,
+          active: false,
+          startsAt: now,
+          endsAt: attendanceDayRange.end
+        }
+      });
       const record = await prisma.attendance.create({ data: { personId: person.id, sessionId: attendanceSession.id } });
       return NextResponse.json({
         message: 'ATTENDANCE SUCCESSFUL!',
@@ -107,10 +115,7 @@ export async function POST(request: Request) {
       });
     } catch (error: unknown) {
       if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2002') {
-        const duplicateMessage = session.endsAt === null
-          ? 'ATTENDANCE ALREADY RECORDED. You have already checked in today.'
-          : 'ATTENDANCE ALREADY RECORDED. You have successfully marked your attendance for this session.';
-        return jsonError(duplicateMessage, 409);
+        return jsonError('ATTENDANCE ALREADY RECORDED. You have already checked in today.', 409);
       }
       throw error;
     }
