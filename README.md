@@ -1,6 +1,6 @@
 # SPARKLAB QR Code Attendance Management System
 
-A full-stack Next.js application for SPARKLAB Creativity and Innovation Hub. Admins register people and start time-limited attendance sessions. Participants scan a reusable printed QR code with a phone camera, enter their short ID, and check in only when the server verifies their location is within the office geofence.
+A full-stack Next.js application for SPARKLAB Creativity and Innovation Hub. Admins register people and start time-limited attendance sessions. Participants scan a reusable printed QR code with a phone camera, enter their username, and check in only when the server verifies their location is within the office geofence.
 
 ## Technology
 
@@ -79,10 +79,10 @@ The command updates the password for that existing administrator. It does not cr
 
 ## How to use
 
-1. Open **Users** and register students and staff. The system generates short IDs such as `S001` for students and `T001` for staff (up to 999 in each category).
+1. Open **Users** and register students and staff. Enter a unique username for each person (3–24 letters, numbers, or hyphens; spaces become hyphens).
 2. Open **QR Session** and download the reusable QR code once. Print it and post it at the attendance table.
 3. Before each attendance period, choose a duration and start a session. The printed QR stays the same; it works only while a session is active.
-4. Participants scan the posted QR with their phone camera, enter their short ID (`S001` or `T001`), and allow location access.
+4. Participants scan the posted QR with their phone camera, enter their username, and allow location access.
 5. The server checks the active session, registered person, and GPS position against the configured office radius, then records attendance. It does not save the participant's coordinates. A database unique constraint prevents duplicate attendance within the same session.
 6. Admins can search users and attendance, activate/deactivate users, edit basic user details, and export attendance to Excel or PDF. The Attendance tab refreshes when opened and every 10 seconds while visible.
 
@@ -102,11 +102,11 @@ The command updates the password for that existing administrator. It does not cr
 ## Deploy to Vercel
 
 1. Rotate any database or administrator passwords that were previously placed in `.env.example`. Copy `.env.example` to `.env` locally and use the new credentials.
-2. Before deploying a database that already has users, run `npm run db:shorten-ids` once to convert existing IDs. Attendance history remains linked to each person, but give each person their new ID.
-3. Ensure the Supabase schema exists by running `npm run db:push` locally. Create the first admin with `npm run db:seed` if one does not already exist.
+2. Before deploying the username update to a database that already has users, run `npm run db:push`, then `npm run db:backfill-usernames`. For schema changes, use Supabase's direct connection or Session Pooler (port `5432`); the Transaction Pooler (port `6543`) is intended for app runtime and may stall schema operations. The backfill script generates usernames from existing names and is safe to rerun. Share the generated usernames with users before they check in.
+3. Create the first admin with `npm run db:seed` if one does not already exist.
 4. Push the project to your GitHub repository, then import that repository into Vercel.
 5. Add these Vercel environment variables for Production:
-   - `DATABASE_URL`: Supabase connection string. Use the Supabase pooler for Vercel serverless deployments.
+   - `DATABASE_URL`: Supabase Transaction Pooler connection string (port `6543`) for Vercel serverless deployments.
    - `JWT_SECRET`: a private random secret of at least 32 characters.
    - `APP_URL`: your deployed HTTPS origin, for example `https://your-project.vercel.app`.
    - `OFFICE_LATITUDE` and `OFFICE_LONGITUDE`: the office center coordinates.

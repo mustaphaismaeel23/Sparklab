@@ -21,7 +21,7 @@ function getCurrentPosition() {
 
 export default function AttendanceScanner() {
   const [sessionToken, setSessionToken] = useState('');
-  const [uniqueId, setUniqueId] = useState('');
+  const [username, setUsername] = useState('');
   const [message, setMessage] = useState('');
   const [result, setResult] = useState<Record<string, string> | null>(null);
   const [busy, setBusy] = useState(false);
@@ -40,7 +40,7 @@ export default function AttendanceScanner() {
       const position = await getCurrentPosition();
       const payload = {
         ...(sessionToken ? { sessionToken } : {}),
-        uniqueId: uniqueId.trim().toUpperCase(),
+        username: username.trim().toLowerCase(),
         latitude: position.coords.latitude,
         longitude: position.coords.longitude,
         accuracy: position.coords.accuracy
@@ -58,7 +58,7 @@ export default function AttendanceScanner() {
 
       setResult(data.attendance);
       setMessage(data.message);
-      setUniqueId('');
+      setUsername('');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Attendance could not be recorded. Please try again.');
     } finally {
@@ -67,10 +67,10 @@ export default function AttendanceScanner() {
   }
 
   return <main className="min-h-screen flex items-center justify-center p-4"><section className="w-full max-w-md rounded-3xl bg-white p-7 shadow-xl">
-    <div className="text-center"><div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-700 text-white text-xl font-bold">S</div><p className="text-xs font-bold tracking-[.2em] text-blue-700">SPARKLAB CREATIVITY & INNOVATION HUB</p><h1 className="mt-2 text-2xl font-bold">Mark your attendance</h1><p className="mt-2 text-sm text-slate-500">Scan the QR code at the attendance table with your phone camera, then enter your short ID.</p></div>
+    <div className="text-center"><div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-700 text-white text-xl font-bold">S</div><p className="text-xs font-bold tracking-[.2em] text-blue-700">SPARKLAB CREATIVITY & INNOVATION HUB</p><h1 className="mt-2 text-2xl font-bold">Mark your attendance</h1><p className="mt-2 text-sm text-slate-500">Scan the QR code at the attendance table with your phone camera, then enter your username.</p></div>
     <form onSubmit={submit} className="mt-7 space-y-3">
-      <label htmlFor="attendance-id" className="block text-sm font-semibold">Your attendance ID</label>
-      <input id="attendance-id" required maxLength={4} value={uniqueId} onChange={event => setUniqueId(event.target.value.toUpperCase())} placeholder="e.g. S001 or T001" className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-600"/>
+      <label htmlFor="attendance-username" className="block text-sm font-semibold">Your username</label>
+      <input id="attendance-username" required minLength={3} maxLength={24} value={username} onChange={event => setUsername(event.target.value.toLowerCase().replace(/\s+/g, '-'))} placeholder="e.g. amina-yusuf" autoCapitalize="none" autoCorrect="off" className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-600"/>
       <p className="text-xs text-slate-500">Location is checked for this attendance only and is not saved. Allow precise location access.</p>
       <button disabled={busy} className="w-full rounded-xl bg-blue-700 px-4 py-3 font-semibold text-white disabled:opacity-50">{busy ? 'VERIFYING...' : 'VERIFY & RECORD ATTENDANCE'}</button>
     </form>

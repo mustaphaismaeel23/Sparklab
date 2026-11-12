@@ -28,6 +28,7 @@ model Admin {
 model Person {
   id           String       @id @default(cuid())
   uniqueId     String       @unique
+  username     String?      @unique
   fullName     String
   phone        String
   email        String?

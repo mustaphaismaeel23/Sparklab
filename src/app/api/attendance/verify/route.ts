@@ -8,7 +8,7 @@ import { prisma } from '@/lib/prisma';
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');
 const schema = z.object({
   sessionToken: z.string().min(20).max(200).optional(),
-  uniqueId: z.string().trim().regex(/^[ST]\d{3}$/i),
+  username: z.string().trim().toLowerCase().min(3).max(24).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
   latitude: z.number().finite().min(-90).max(90),
   longitude: z.number().finite().min(-180).max(180),
   accuracy: z.number().finite().nonnegative()
@@ -41,7 +41,7 @@ export async function POST(request: Request) {
   try {
     input = schema.parse(await request.json());
   } catch {
-    return jsonError('Enter a valid attendance ID and allow location access.', 400);
+    return jsonError('Enter a valid username and allow location access.', 400);
   }
 
   const geofence = getOfficeGeofence();
@@ -71,9 +71,9 @@ export async function POST(request: Request) {
       return jsonError('Your location could not be verified within the office area. Enable precise location and try again.', 403);
     }
 
-    const person = await prisma.person.findUnique({ where: { uniqueId: input.uniqueId.toUpperCase() } });
+    const person = await prisma.person.findUnique({ where: { username: input.username } });
     if (!person || !person.active) {
-      return jsonError('VERIFICATION FAILED. Your ID is not registered in the SPARKLAB system.', 404);
+      return jsonError('VERIFICATION FAILED. That username is not registered in the SPARKLAB system.', 404);
     }
 
     try {
@@ -82,7 +82,7 @@ export async function POST(request: Request) {
         message: 'ATTENDANCE SUCCESSFUL!',
         attendance: {
           name: person.fullName,
-          uniqueId: person.uniqueId,
+          username: person.username ?? input.username,
           category: person.category,
           department: person.department,
           date: record.checkedAt.toLocaleDateString('en-NG', { timeZone: 'Africa/Lagos', day: '2-digit', month: 'long', year: 'numeric' }),
