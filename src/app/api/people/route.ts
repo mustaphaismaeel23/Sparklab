@@ -5,12 +5,13 @@ import { prisma } from '@/lib/prisma';
 import { generateUniqueId } from '@/lib/ids';
 import { jsonError } from '@/lib/http';
 import { normalizeUsername } from '@/lib/usernames';
+import { countAttendanceDays } from '@/lib/attendance-days';
 const schema = z.object({ fullName: z.string().trim().min(2).max(120), username: z.string().trim().toLowerCase().min(3).max(24).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/), phone: z.string().trim().min(5).max(30), email: z.union([z.email(), z.literal('')]).optional(), category: z.enum(['STUDENT','STAFF']), department: z.string().trim().min(2).max(120) });
 export async function GET(request: Request) {
   if (!(await getAdmin())) return jsonError('Unauthorized', 401);
   const { searchParams } = new URL(request.url); const q = searchParams.get('q')?.trim(); const category = searchParams.get('category'); const status = searchParams.get('status');
-  const people = await prisma.person.findMany({ where: { ...(q ? { OR: [{ fullName: { contains: q, mode: 'insensitive' as const } }, { username: { contains: q, mode: 'insensitive' as const } }] } : {}), ...(category === 'STUDENT' || category === 'STAFF' ? { category } : {}), ...(status === 'active' ? { active: true } : status === 'inactive' ? { active: false } : {}) }, orderBy: { registeredAt: 'desc' } });
-  return NextResponse.json({ people });
+  const people = await prisma.person.findMany({ where: { ...(q ? { OR: [{ fullName: { contains: q, mode: 'insensitive' as const } }, { username: { contains: q, mode: 'insensitive' as const } }] } : {}), ...(category === 'STUDENT' || category === 'STAFF' ? { category } : {}), ...(status === 'active' ? { active: true } : status === 'inactive' ? { active: false } : {}) }, include: { attendance: { select: { checkedAt: true } } }, orderBy: { registeredAt: 'desc' } });
+  return NextResponse.json({ people: people.map(({ attendance, ...person }) => ({ ...person, daysAttended: countAttendanceDays(attendance) })) });
 }
 export async function POST(request: Request) {
   if (!(await getAdmin())) return jsonError('Unauthorized', 401);

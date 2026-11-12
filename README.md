@@ -84,7 +84,7 @@ The command updates the password for that existing administrator. It does not cr
 3. Before each attendance period, choose a duration and start a session. The printed QR stays the same; it works only while a session is active.
 4. Participants scan the posted QR with their phone camera, enter their username, and allow location access.
 5. The server checks the active session, registered person, and GPS position against the configured office radius, then records attendance. It does not save the participant's coordinates. A database unique constraint prevents duplicate attendance within the same session.
-6. Admins can search users and attendance, activate/deactivate users, edit basic user details, and export attendance to Excel or PDF. The Attendance tab refreshes when opened and every 10 seconds while visible.
+6. Admins can search users and attendance, see each user's distinct attendance-day count, activate/deactivate users, edit details, delete a user with their attendance history, or delete an individual attendance record. Deletions require confirmation. The Attendance tab refreshes when opened and every 10 seconds while visible.
 
 ## Important deployment notes
 
@@ -121,9 +121,11 @@ Keep `ADMIN_EMAIL` and `ADMIN_PASSWORD` local for initial seeding or password re
 - `/admin` — admin dashboard, users, QR session and attendance reports
 - `/attendance` — participant page opened by the reusable printed QR
 - `/api/people` — authenticated registration/listing
+- `/api/people/[id]` — authenticated user editing/deletion
 - `/api/sessions` — authenticated session and QR generation
 - `/api/attendance/verify` — public attendance verification
 - `/api/attendance` — authenticated attendance listing
+- `/api/attendance/[id]` — authenticated attendance-record deletion
 - `/api/reports/export?format=xlsx|pdf` — authenticated exports
 
 ## Notes

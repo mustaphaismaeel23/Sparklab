@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 
-type Person = { id: string; username: string | null; fullName: string; phone: string; email: string | null; category: 'STUDENT' | 'STAFF'; department: string; active: boolean; registeredAt: string };
+type Person = { id: string; username: string | null; fullName: string; phone: string; email: string | null; category: 'STUDENT' | 'STAFF'; department: string; active: boolean; registeredAt: string; daysAttended: number };
 type RecordRow = { id: string; name: string; username: string; category: string; department: string; date: string; time: string; status: string; session: string };
 type Session = { id: string; title: string; endsAt: string };
 type Tab = 'overview' | 'people' | 'attendance' | 'session';
@@ -155,6 +155,38 @@ export default function AdminPage() {
     await updatePerson({ ...person, fullName, username, phone, department, email });
   }
 
+  async function deletePerson(person: Person) {
+    if (!window.confirm(`Delete ${person.fullName} and all ${person.daysAttended} attendance days? This cannot be undone.`)) return;
+    setBusy(true);
+    try {
+      const response = await fetch(`/api/people/${person.id}`, { method: 'DELETE' });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error);
+      setNotice(`Deleted ${person.fullName} and their attendance history.`);
+      await load();
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Could not delete the user.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function deleteAttendance(record: RecordRow) {
+    if (!window.confirm(`Delete ${record.name}'s attendance record for ${record.date}? This cannot be undone.`)) return;
+    setBusy(true);
+    try {
+      const response = await fetch(`/api/attendance/${record.id}`, { method: 'DELETE' });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error);
+      setNotice('Attendance record deleted.');
+      await load();
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Could not delete the attendance record.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function createSession() {
     setBusy(true);
     setNotice('');
@@ -215,13 +247,41 @@ export default function AdminPage() {
           <label className="mb-4 block text-sm font-medium">Category<select value={form.category} onChange={event => setForm({ ...form, category: event.target.value })} className="mt-1 w-full rounded-xl border px-3 py-2"><option value="STUDENT">Student</option><option value="STAFF">Staff</option></select></label>
           <button disabled={busy} className="w-full rounded-xl bg-blue-700 px-4 py-3 font-semibold text-white">{busy ? 'Saving...' : 'Register user'}</button>
         </form>
-        <div className="rounded-2xl border bg-white p-5"><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><h2 className="font-bold">Registered users ({visiblePeople.length})</h2><input value={q} onChange={event => setQ(event.target.value)} placeholder="Search name or username" className="rounded-xl border px-3 py-2 text-sm"/></div><div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead className="bg-slate-50 text-slate-500"><tr>{['Name / Username', 'Category', 'Department', 'Status', 'Action'].map(heading => <th key={heading} className="p-3">{heading}</th>)}</tr></thead><tbody>{visiblePeople.map(person => <tr key={person.id} className="border-t"><td className="p-3"><b>{person.fullName}</b><div className="text-xs text-slate-500">@{person.username || 'pending backfill'}</div></td><td className="p-3">{person.category}</td><td className="p-3">{person.department}</td><td className="p-3">{person.active ? 'Active' : 'Inactive'}</td><td className="p-3"><div className="flex gap-2"><button onClick={() => void editPerson(person)} className="text-blue-700 underline">Edit</button><button onClick={() => void updatePerson(person, !person.active)} className="text-blue-700 underline">{person.active ? 'Deactivate' : 'Activate'}</button></div></td></tr>)}</tbody></table></div></div>
+        <div className="rounded-2xl border bg-white p-5">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><h2 className="font-bold">Registered users ({visiblePeople.length})</h2><input value={q} onChange={event => setQ(event.target.value)} placeholder="Search name or username" className="rounded-xl border px-3 py-2 text-sm"/></div>
+          <div className="overflow-x-auto"><table className="w-full text-left text-sm">
+            <thead className="bg-slate-50 text-slate-500"><tr>{['Name / Username', 'Category', 'Department', 'Days attended', 'Status', 'Action'].map(heading => <th key={heading} className="p-3">{heading}</th>)}</tr></thead>
+            <tbody>{visiblePeople.map(person => <tr key={person.id} className="border-t">
+              <td className="p-3"><b>{person.fullName}</b><div className="text-xs text-slate-500">@{person.username || 'pending backfill'}</div></td>
+              <td className="p-3">{person.category}</td>
+              <td className="p-3">{person.department}</td>
+              <td className="p-3">{person.daysAttended}</td>
+              <td className="p-3">{person.active ? 'Active' : 'Inactive'}</td>
+              <td className="p-3"><div className="flex flex-wrap gap-2">
+                <button onClick={() => void editPerson(person)} className="text-blue-700 underline">Edit</button>
+                <button onClick={() => void updatePerson(person, !person.active)} className="text-blue-700 underline">{person.active ? 'Deactivate' : 'Activate'}</button>
+                <button disabled={busy} onClick={() => void deletePerson(person)} className="text-red-700 underline disabled:opacity-50">Delete</button>
+              </div></td>
+            </tr>)}</tbody>
+          </table></div>
+        </div>
       </div>}
       {tab === 'attendance' && <div className="rounded-2xl border bg-white p-5">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><h2 className="font-bold">Attendance records ({visibleRecords.length})</h2><div className="flex flex-wrap gap-2"><button onClick={() => setAttendanceRefresh(value => value + 1)} className={`${button} border`}>Refresh</button><input type="date" value={date} onChange={event => setDate(event.target.value)} className="rounded-xl border px-3 py-2 text-sm"/><input value={q} onChange={event => setQ(event.target.value)} placeholder="Search name or username" className="rounded-xl border px-3 py-2 text-sm"/><select value={category} onChange={event => setCategory(event.target.value)} className="rounded-xl border px-3 py-2 text-sm"><option value="ALL">All categories</option><option value="STUDENT">Students</option><option value="STAFF">Staff</option></select></div></div>
         {attendanceError && <p role="alert" className="mb-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">{attendanceError}</p>}
         <div className="mb-4 flex gap-2"><button onClick={() => void exportReport('xlsx')} className={`${button} bg-green-700 text-white`}>Export Excel</button><button onClick={() => void exportReport('pdf')} className={`${button} bg-slate-800 text-white`}>Export PDF</button></div>
-        <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead className="bg-slate-50 text-slate-500"><tr>{['Name / Username', 'Category', 'Department', 'Date', 'Time', 'Status'].map(heading => <th key={heading} className="p-3">{heading}</th>)}</tr></thead><tbody>{visibleRecords.map(record => <tr key={record.id} className="border-t"><td className="p-3"><b>{record.name}</b><div className="text-xs text-slate-500">@{record.username || 'pending backfill'}</div></td><td className="p-3">{record.category}</td><td className="p-3">{record.department}</td><td className="p-3">{record.date}</td><td className="p-3">{record.time}</td><td className="p-3"><span className="rounded-full bg-green-50 px-2 py-1 text-green-700">{record.status}</span></td></tr>)}</tbody></table>{visibleRecords.length === 0 && <p className="p-8 text-center text-sm text-slate-500">No attendance records found.</p>}</div>
+        <div className="overflow-x-auto"><table className="w-full text-left text-sm">
+          <thead className="bg-slate-50 text-slate-500"><tr>{['Name / Username', 'Category', 'Department', 'Date', 'Time', 'Status', 'Action'].map(heading => <th key={heading} className="p-3">{heading}</th>)}</tr></thead>
+          <tbody>{visibleRecords.map(record => <tr key={record.id} className="border-t">
+            <td className="p-3"><b>{record.name}</b><div className="text-xs text-slate-500">@{record.username || 'pending backfill'}</div></td>
+            <td className="p-3">{record.category}</td>
+            <td className="p-3">{record.department}</td>
+            <td className="p-3">{record.date}</td>
+            <td className="p-3">{record.time}</td>
+            <td className="p-3"><span className="rounded-full bg-green-50 px-2 py-1 text-green-700">{record.status}</span></td>
+            <td className="p-3"><button disabled={busy} onClick={() => void deleteAttendance(record)} className="text-red-700 underline disabled:opacity-50">Delete</button></td>
+          </tr>)}</tbody>
+        </table>{visibleRecords.length === 0 && <p className="p-8 text-center text-sm text-slate-500">No attendance records found.</p>}</div>
       </div>}
       {tab === 'session' && <div className="grid gap-5 lg:grid-cols-2"><div className="rounded-2xl border bg-white p-5"><h2 className="font-bold">Create attendance session</h2><p className="mt-1 text-sm text-slate-500">Start a timed session before check-ins. The printed QR code remains the same.</p><label className="mt-4 block text-sm font-medium">Session title<input value={sessionTitle} onChange={event => setSessionTitle(event.target.value)} className="mt-1 w-full rounded-xl border px-3 py-2"/></label><label className="mt-4 block text-sm font-medium">Session duration<select value={duration} onChange={event => setDuration(Number(event.target.value))} className="mt-1 w-full rounded-xl border px-3 py-2"><option value={30}>30 minutes</option><option value={60}>1 hour</option><option value={120}>2 hours</option><option value={240}>4 hours</option><option value={480}>8 hours</option></select></label><button disabled={busy} onClick={() => void createSession()} className="mt-5 w-full rounded-xl bg-blue-700 px-4 py-3 font-semibold text-white">{busy ? 'Creating...' : 'Start attendance session'}</button>{session ? <p className="mt-4 text-sm text-slate-600">Active session: <b>{session.title}</b><br/>Expires: {new Date(session.endsAt).toLocaleString('en-NG', { timeZone: 'Africa/Lagos' })}</p> : <p className="mt-4 text-sm text-amber-700">No active session. Start one before participants check in.</p>}</div><div className="flex min-h-80 flex-col items-center justify-center rounded-2xl border bg-white p-5 text-center">{qr ? <><h2 className="font-bold">Reusable attendance QR code</h2><img src={qr} alt="Reusable SPARKLAB attendance QR code" className="mt-3 w-72 max-w-full"/><p className="mt-2 text-sm text-slate-500">Print this code once and keep it at the attendance table.</p><a href={qr} download="sparklab-attendance-qr.png" className="mt-3 text-sm font-semibold text-blue-700 underline">Download QR to print</a></> : <><div className="text-5xl">▦</div><p className="mt-3 font-semibold">QR code is loading</p></>}</div></div>}
     </div>
