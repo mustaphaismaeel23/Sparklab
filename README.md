@@ -84,7 +84,7 @@ The command updates the password for that existing administrator. It does not cr
 3. Before each attendance period, choose a duration and start a session. The printed QR stays the same; it works only while a session is active.
 4. Participants scan the posted QR with their phone camera, enter their short ID (`S001` or `T001`), and allow location access.
 5. The server checks the active session, registered person, and GPS position against the configured office radius, then records attendance. It does not save the participant's coordinates. A database unique constraint prevents duplicate attendance within the same session.
-6. Admins can search users and attendance, activate/deactivate users, edit basic user details, and export attendance to Excel or PDF.
+6. Admins can search users and attendance, activate/deactivate users, edit basic user details, and export attendance to Excel or PDF. The Attendance tab refreshes when opened and every 10 seconds while visible.
 
 ## Important deployment notes
 
