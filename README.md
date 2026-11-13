@@ -1,6 +1,6 @@
 # SPARKLAB QR Code Attendance Management System
 
-A full-stack Next.js application for SPARKLAB Creativity and Innovation Hub. Admins register people and start no-limit or time-limited attendance sessions. Participants scan a reusable printed QR code with a phone camera, enter their username, and check in only when the server verifies their location is within the office geofence.
+A full-stack Next.js application for SPARKLAB Creativity and Innovation Hub. Admins register people and start no-limit or time-limited attendance sessions. When an admin starts a session, the server captures that device's location as the session's check-in center. Participants scan the reusable printed QR code with a phone camera, enter their username, and check in only while a session is active and their location is within its geofence.
 
 ## Technology
 
@@ -32,8 +32,6 @@ A full-stack Next.js application for SPARKLAB Creativity and Innovation Hub. Adm
    DATABASE_URL="postgresql://postgres:YOUR_PASSWORD@localhost:5432/sparklab_attendance?schema=public"
    JWT_SECRET="use-a-random-secret-of-at-least-32-characters"
    APP_URL="http://localhost:3000"
-   OFFICE_LATITUDE="YOUR_OFFICE_LATITUDE"
-   OFFICE_LONGITUDE="YOUR_OFFICE_LONGITUDE"
    OFFICE_RADIUS_METERS="100"
    ADMIN_NAME="SPARKLAB Administrator"
    ADMIN_EMAIL="admin@yourdomain.com"
@@ -81,21 +79,21 @@ The command updates the password for that existing administrator. It does not cr
 
 1. Open **Users** and register students and staff. Enter a unique username for each person (3–24 letters, numbers, or hyphens; spaces become hyphens).
 2. Open **QR Session** and download the reusable QR code once. Print it and post it at the attendance table.
-3. Start an attendance session. **No time limit** is selected by default; the session remains active until you start another one. You can still select a limited duration when needed. The printed QR stays the same.
+3. At the attendance point, allow precise location and start a session. Its location is captured as the geofence center. **No time limit** is selected by default; the session remains active until you start another one. You can still select a limited duration when needed. The printed QR stays the same.
 4. Participants scan the posted QR with their phone camera, enter their username, and allow location access.
-5. The server checks the active session, registered person, and GPS position against the configured office radius, then records attendance. It does not save the participant's coordinates. Each person can check in once per Africa/Lagos calendar day, even if an admin starts multiple sessions that day.
+5. The server checks the active session, registered person, and GPS position against the location captured when that session started, then records attendance. The admin location is stored with the session; participant coordinates are not saved. Each person can check in once per Africa/Lagos calendar day, even if an admin starts multiple sessions that day.
 6. Admins can search users and attendance, see each user's distinct attendance-day count in the user list and attendance records, and export the count to Excel or PDF. Admins can also activate/deactivate users, edit details, delete a user with their attendance history, or delete an individual attendance record. Deletions require confirmation. The Attendance tab refreshes when opened and every 10 seconds while visible.
 
 ## Important deployment notes
 
 - Geolocation requires HTTPS on deployed sites. On localhost, browsers generally allow location access without HTTPS.
 - Set `APP_URL` to the public HTTPS origin before deployment; the reusable QR points to this address.
-- Set `OFFICE_LATITUDE`, `OFFICE_LONGITUDE`, and `OFFICE_RADIUS_METERS` on the server. Check-ins require the reported GPS point to be within the radius and GPS accuracy to be no worse than the radius. Since GPS is approximate, the actual position can be slightly outside the boundary.
+- Set `OFFICE_RADIUS_METERS` on the server (100 m by default). Admins must start each session at the check-in point with GPS accuracy no worse than this radius. Check-ins require the reported point and its accuracy to be within the same radius of the session's captured location. Rejected check-ins show estimated distance and GPS accuracy. Since GPS is approximate, the actual position can be slightly outside the boundary.
 - Use a managed PostgreSQL database. Apply schema changes before deploying; this project currently uses `prisma db push` and has no committed migration history.
 - Set strong, private `JWT_SECRET` and admin credentials. Do not commit `.env`.
 - `.env.example` contains placeholders only; keep `.env` out of Git.
 - Set the deployment/runtime timezone to UTC if possible; attendance timestamps are stored as server timestamps and displayed in `Africa/Lagos`.
-- GPS readings can be inaccurate indoors and can be spoofed. The geofence is a basic presence check, not strong identity proof; the app does not store coordinates.
+- GPS readings can be inaccurate indoors and can be spoofed. The geofence is a basic presence check, not strong identity proof. The app stores the admin's session location, but does not store participant coordinates.
 - Add provider/edge rate limiting (for example, Cloudflare or your hosting platform) to `/api/attendance/verify` before public production use. In-memory rate limiting is intentionally not used because it is unreliable across serverless instances.
 - Back up PostgreSQL regularly and restrict admin access to trusted personnel.
 
@@ -109,8 +107,7 @@ The command updates the password for that existing administrator. It does not cr
    - `DATABASE_URL`: Supabase Transaction Pooler connection string (port `6543`) for Vercel serverless deployments.
    - `JWT_SECRET`: a private random secret of at least 32 characters.
    - `APP_URL`: your deployed HTTPS origin, for example `https://your-project.vercel.app`.
-   - `OFFICE_LATITUDE` and `OFFICE_LONGITUDE`: the office center coordinates.
-   - `OFFICE_RADIUS_METERS`: the allowed radius, such as `100`.
+   - `OFFICE_RADIUS_METERS`: the allowed radius around each session's captured admin location, such as `100`.
 6. Deploy. The build script generates Prisma Client and builds Next.js. Set `APP_URL` to the final Vercel domain and redeploy if the domain changes.
 
 The app automatically enables Prisma's PgBouncer-compatible mode for Supabase Transaction Pooler URLs.

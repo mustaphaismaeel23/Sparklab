@@ -16,7 +16,13 @@ export async function GET(request: Request) {
   const qrDataUrl = await QRCode.toDataURL(attendanceUrl, { width: 420, margin: 2, errorCorrectionLevel: 'H' });
 
   return NextResponse.json({
-    session: session ? { id: session.id, title: session.title, startsAt: session.startsAt, endsAt: session.endsAt } : null,
+    session: session ? {
+      id: session.id,
+      title: session.title,
+      startsAt: session.startsAt,
+      endsAt: session.endsAt,
+      locationAccuracy: session.locationAccuracy
+    } : null,
     attendanceUrl,
     qrDataUrl
   });

@@ -12,21 +12,33 @@ function distanceInMeters(latitude1: number, longitude1: number, latitude2: numb
   return 2 * EARTH_RADIUS_METERS * Math.atan2(Math.sqrt(boundedHaversine), Math.sqrt(1 - boundedHaversine));
 }
 
-export function isWithinGeofence({
+export function getGeofenceCheck({
   latitude,
   longitude,
   accuracy,
-  officeLatitude,
-  officeLongitude,
+  centerLatitude,
+  centerLongitude,
   radiusMeters
 }: {
   latitude: number;
   longitude: number;
   accuracy: number;
-  officeLatitude: number;
-  officeLongitude: number;
+  centerLatitude: number;
+  centerLongitude: number;
   radiusMeters: number;
 }) {
-  return distanceInMeters(latitude, longitude, officeLatitude, officeLongitude) <= radiusMeters
-    && accuracy <= radiusMeters;
+  const distanceMeters = distanceInMeters(latitude, longitude, centerLatitude, centerLongitude);
+  const withinRadius = distanceMeters <= radiusMeters;
+  const accuracyWithinLimit = accuracy <= radiusMeters;
+
+  return {
+    distanceMeters,
+    withinRadius,
+    accuracyWithinLimit,
+    accepted: withinRadius && accuracyWithinLimit
+  };
+}
+
+export function isWithinGeofence(input: Parameters<typeof getGeofenceCheck>[0]) {
+  return getGeofenceCheck(input).accepted;
 }
