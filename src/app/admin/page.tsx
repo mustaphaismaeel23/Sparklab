@@ -3,8 +3,9 @@ import { useEffect, useMemo, useState } from 'react';
 
 type Person = { id: string; username: string | null; fullName: string; phone: string; email: string | null; category: 'STUDENT' | 'STAFF'; department: string; active: boolean; registeredAt: string; daysAttended: number };
 type RecordRow = { id: string; name: string; username: string; category: string; department: string; date: string; time: string; daysAttended: number; status: string; session: string };
+type VisitorRecord = { id: string; visitorName: string; hostName: string; date: string; time: string; session: string };
 type Session = { id: string; title: string; endsAt: string | null };
-type Tab = 'overview' | 'people' | 'attendance' | 'session';
+type Tab = 'overview' | 'people' | 'attendance' | 'visitors' | 'session';
 const button = 'rounded-xl px-4 py-2 text-sm font-semibold';
 
 export default function AdminPage() {
@@ -13,14 +14,19 @@ export default function AdminPage() {
   const [admin, setAdmin] = useState<{ name: string; email: string } | null>(null);
   const [people, setPeople] = useState<Person[]>([]);
   const [records, setRecords] = useState<RecordRow[]>([]);
+  const [visitorRecords, setVisitorRecords] = useState<VisitorRecord[]>([]);
   const [q, setQ] = useState('');
+  const [visitorQuery, setVisitorQuery] = useState('');
   const [category, setCategory] = useState('ALL');
   const [date, setDate] = useState('');
+  const [visitorDate, setVisitorDate] = useState('');
   const [form, setForm] = useState({ fullName: '', username: '', phone: '', email: '', category: 'STUDENT', department: '' });
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
   const [attendanceError, setAttendanceError] = useState('');
   const [attendanceRefresh, setAttendanceRefresh] = useState(0);
+  const [visitorError, setVisitorError] = useState('');
+  const [visitorRefresh, setVisitorRefresh] = useState(0);
   const [qr, setQr] = useState('');
   const [session, setSession] = useState<Session | null>(null);
   const [duration, setDuration] = useState<number | null>(null);
@@ -34,13 +40,15 @@ export default function AdminPage() {
     }
     const authData = await auth.json();
     setAdmin(authData.admin);
-    const [peopleResponse, recordsResponse, sessionResponse] = await Promise.all([
+    const [peopleResponse, recordsResponse, visitorResponse, sessionResponse] = await Promise.all([
       fetch('/api/people'),
       fetch('/api/attendance'),
+      fetch('/api/visitor-visits'),
       fetch('/api/sessions/active')
     ]);
     if (peopleResponse.ok) setPeople((await peopleResponse.json()).people);
     if (recordsResponse.ok) setRecords((await recordsResponse.json()).records);
+    if (visitorResponse.ok) setVisitorRecords((await visitorResponse.json()).visits);
     if (sessionResponse.ok) {
       const data = await sessionResponse.json();
       setSession(data.session);
@@ -81,10 +89,40 @@ export default function AdminPage() {
     };
   }, [tab, attendanceRefresh]);
 
+  useEffect(() => {
+    if (tab !== 'visitors') return;
+    let active = true;
+    let loading = false;
+    const refresh = async () => {
+      if (loading) return;
+      loading = true;
+      try {
+        const response = await fetch('/api/visitor-visits', { cache: 'no-store' });
+        if (!response.ok) throw new Error('Visitor refresh failed.');
+        const data = await response.json();
+        if (active) {
+          setVisitorRecords(data.visits);
+          setVisitorError('');
+        }
+      } catch {
+        if (active) setVisitorError('Could not refresh visitor records. Try again.');
+      } finally {
+        loading = false;
+      }
+    };
+    void refresh();
+    const interval = window.setInterval(refresh, 10_000);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
+  }, [tab, visitorRefresh]);
+
   const students = people.filter(person => person.category === 'STUDENT').length;
   const staff = people.filter(person => person.category === 'STAFF').length;
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Lagos' });
   const todayRecords = records.filter(record => record.date === today);
+  const todayVisitorRecords = visitorRecords.filter(record => record.date === today);
   const presentUsernames = new Set(todayRecords.map(record => record.username));
   const absentToday = people.filter(person => person.active && !presentUsernames.has(person.username ?? '')).length;
   const visiblePeople = useMemo(() => people.filter(person =>
@@ -96,6 +134,10 @@ export default function AdminPage() {
     (category === 'ALL' || record.category === category) &&
     (!q || record.name.toLowerCase().includes(q.toLowerCase()) || record.username.toLowerCase().includes(q.toLowerCase()))
   ), [records, date, category, q]);
+  const visibleVisitorRecords = useMemo(() => visitorRecords.filter(record =>
+    (!visitorDate || record.date === visitorDate) &&
+    (!visitorQuery || record.visitorName.toLowerCase().includes(visitorQuery.toLowerCase()) || record.hostName.toLowerCase().includes(visitorQuery.toLowerCase()))
+  ), [visitorRecords, visitorDate, visitorQuery]);
 
   async function register(event: React.FormEvent) {
     event.preventDefault();
@@ -187,6 +229,22 @@ export default function AdminPage() {
     }
   }
 
+  async function deleteVisitorRecord(record: VisitorRecord) {
+    if (!window.confirm(`Delete ${record.visitorName}'s visitor check-in for ${record.date}? This cannot be undone.`)) return;
+    setBusy(true);
+    try {
+      const response = await fetch(`/api/visitor-visits/${record.id}`, { method: 'DELETE' });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error);
+      setNotice('Visitor record deleted.');
+      await load();
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Could not delete the visitor record.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function createSession() {
     setBusy(true);
     setNotice('Starting attendance session...');
@@ -237,11 +295,11 @@ export default function AdminPage() {
     <header className="border-b bg-white"><div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4"><div className="flex items-center gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-700 font-bold text-white">S</div><div><p className="font-bold">SPARKLAB</p><p className="text-xs text-slate-500">Attendance Management</p></div></div><div className="flex items-center gap-3"><span className="hidden text-sm text-slate-500 sm:block">{admin?.name}</span><button onClick={logout} className={`${button} border border-slate-200`}>Sign out</button></div></div></header>
     <div className="mx-auto max-w-7xl px-5 py-7">
       <div className="mb-6"><p className="text-sm font-semibold text-blue-700">ADMINISTRATION</p><h1 className="text-3xl font-bold">Dashboard</h1><p className="mt-1 text-sm text-slate-500">Manage registrations and attendance records.</p></div>
-      <nav className="mb-6 flex flex-wrap gap-2">{(['overview', 'people', 'attendance', 'session'] as Tab[]).map(tabName => <button key={tabName} onClick={() => { setTab(tabName); setNotice(''); }} className={`${button} capitalize ${tab === tabName ? 'bg-blue-700 text-white' : 'border border-slate-200 bg-white'}`}>{tabName === 'people' ? 'Users' : tabName === 'session' ? 'QR Session' : tabName}</button>)}</nav>
+      <nav className="mb-6 flex flex-wrap gap-2">{(['overview', 'people', 'attendance', 'visitors', 'session'] as Tab[]).map(tabName => <button key={tabName} onClick={() => { setTab(tabName); setNotice(''); }} className={`${button} capitalize ${tab === tabName ? 'bg-blue-700 text-white' : 'border border-slate-200 bg-white'}`}>{tabName === 'people' ? 'Users' : tabName === 'session' ? 'QR Session' : tabName}</button>)}</nav>
       {notice && <div className="mb-5 rounded-xl border border-blue-100 bg-blue-50 p-3 text-sm text-blue-900">{notice}</div>}
       {tab === 'overview' && <>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">{[{ label: 'Registered students', value: students }, { label: 'Registered staff', value: staff }, { label: "Today's attendance", value: todayRecords.length }, { label: 'Present today', value: presentUsernames.size }, { label: 'Absent today', value: absentToday }].map(item => <div key={item.label} className="rounded-2xl border border-slate-200 bg-white p-5"><p className="text-sm text-slate-500">{item.label}</p><p className="mt-2 text-3xl font-bold">{item.value}</p></div>)}</div>
-        <div className="mt-6 grid gap-5 lg:grid-cols-2"><div className="rounded-2xl border bg-white p-5"><h2 className="font-bold">Quick actions</h2><div className="mt-4 flex flex-wrap gap-2"><button onClick={() => setTab('people')} className={`${button} bg-blue-700 text-white`}>Register a user</button><button onClick={() => setTab('session')} className={`${button} border`}>Create attendance QR</button><button onClick={() => setTab('attendance')} className={`${button} border`}>View attendance</button></div></div><div className="rounded-2xl border bg-white p-5"><h2 className="font-bold">Today's attendance</h2><p className="mt-2 text-3xl font-bold">{todayRecords.length}</p><p className="text-sm text-slate-500">Attendance entries recorded today (Africa/Lagos).</p></div></div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">{[{ label: 'Registered students', value: students }, { label: 'Registered staff', value: staff }, { label: "Today's attendance", value: todayRecords.length }, { label: 'Visitors today', value: todayVisitorRecords.length }, { label: 'Present today', value: presentUsernames.size }, { label: 'Absent today', value: absentToday }].map(item => <div key={item.label} className="rounded-2xl border border-slate-200 bg-white p-5"><p className="text-sm text-slate-500">{item.label}</p><p className="mt-2 text-3xl font-bold">{item.value}</p></div>)}</div>
+        <div className="mt-6 grid gap-5 lg:grid-cols-2"><div className="rounded-2xl border bg-white p-5"><h2 className="font-bold">Quick actions</h2><div className="mt-4 flex flex-wrap gap-2"><button onClick={() => setTab('people')} className={`${button} bg-blue-700 text-white`}>Register a user</button><button onClick={() => setTab('session')} className={`${button} border`}>Create attendance QR</button><button onClick={() => setTab('attendance')} className={`${button} border`}>View attendance</button><button onClick={() => setTab('visitors')} className={`${button} border`}>View visitors</button></div></div><div className="rounded-2xl border bg-white p-5"><h2 className="font-bold">Today's attendance</h2><p className="mt-2 text-3xl font-bold">{todayRecords.length}</p><p className="text-sm text-slate-500">Attendance entries recorded today (Africa/Lagos).</p></div></div>
       </>}
       {tab === 'people' && <div className="grid gap-5 lg:grid-cols-[360px_1fr]">
         <form onSubmit={register} className="h-fit rounded-2xl border bg-white p-5">
@@ -286,6 +344,21 @@ export default function AdminPage() {
             <td className="p-3"><button disabled={busy} onClick={() => void deleteAttendance(record)} className="text-red-700 underline disabled:opacity-50">Delete</button></td>
           </tr>)}</tbody>
         </table>{visibleRecords.length === 0 && <p className="p-8 text-center text-sm text-slate-500">No attendance records found.</p>}</div>
+      </div>}
+      {tab === 'visitors' && <div className="rounded-2xl border bg-white p-5">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><h2 className="font-bold">Visitor records ({visibleVisitorRecords.length})</h2><div className="flex flex-wrap gap-2"><button onClick={() => setVisitorRefresh(value => value + 1)} className={`${button} border`}>Refresh</button><input type="date" value={visitorDate} onChange={event => setVisitorDate(event.target.value)} className="rounded-xl border px-3 py-2 text-sm"/><input value={visitorQuery} onChange={event => setVisitorQuery(event.target.value)} placeholder="Search visitor or host" className="rounded-xl border px-3 py-2 text-sm"/></div></div>
+        {visitorError && <p role="alert" className="mb-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">{visitorError}</p>}
+        <div className="overflow-x-auto"><table className="w-full text-left text-sm">
+          <thead className="bg-slate-50 text-slate-500"><tr>{['Visitor name', 'Visiting', 'Date', 'Time', 'Session', 'Action'].map(heading => <th key={heading} className="p-3">{heading}</th>)}</tr></thead>
+          <tbody>{visibleVisitorRecords.map(record => <tr key={record.id} className="border-t">
+            <td className="p-3 font-semibold">{record.visitorName}</td>
+            <td className="p-3">{record.hostName}</td>
+            <td className="p-3">{record.date}</td>
+            <td className="p-3">{record.time}</td>
+            <td className="p-3">{record.session}</td>
+            <td className="p-3"><button disabled={busy} onClick={() => void deleteVisitorRecord(record)} className="text-red-700 underline disabled:opacity-50">Delete</button></td>
+          </tr>)}</tbody>
+        </table>{visibleVisitorRecords.length === 0 && <p className="p-8 text-center text-sm text-slate-500">No visitor records found.</p>}</div>
       </div>}
       {tab === 'session' && <div className="grid gap-5 lg:grid-cols-2">
         <div className="rounded-2xl border bg-white p-5">

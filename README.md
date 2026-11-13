@@ -1,6 +1,6 @@
 # SPARKLAB QR Code Attendance Management System
 
-A full-stack Next.js application for SPARKLAB Creativity and Innovation Hub. Admins register people and start no-limit or time-limited attendance sessions. Participants scan the reusable printed QR code with a phone camera, enter their username, and check in only while a session is active.
+A full-stack Next.js application for SPARKLAB Creativity and Innovation Hub. Admins register students and staff, start no-limit or time-limited sessions, and manage visitor check-ins. The same QR code offers a registered-person or visitor check-in while a session is active.
 
 ## Technology
 
@@ -78,9 +78,10 @@ The command updates the password for that existing administrator. It does not cr
 1. Open **Users** and register students and staff. Enter a unique username for each person (3–24 letters, numbers, or hyphens; spaces become hyphens).
 2. Open **QR Session** and download the reusable QR code once. Print it and post it at the attendance table.
 3. Start a session to enable check-in. **No time limit** is selected by default; the session remains active until you start another one. You can still select a limited duration when needed. The printed QR stays the same.
-4. Participants scan the posted QR with their phone camera and enter their username. Location access is not required.
-5. The server checks the active session and registered person, then records attendance. Each person can check in once per Africa/Lagos calendar day, even if an admin starts multiple sessions that day.
-6. Admins can search users and attendance, see each user's distinct attendance-day count in the user list and attendance records, and export the count to Excel or PDF. Admins can also activate/deactivate users, edit details, delete a user with their attendance history, or delete an individual attendance record. Deletions require confirmation. The Attendance tab refreshes when opened and every 10 seconds while visible.
+4. Participants scan the posted QR and choose **Student / Staff Check-in** or **Visitor Check-in**.
+5. Students and staff enter their registered username and can check in once per Africa/Lagos calendar day. Visitors enter their name and select an active student or staff host, or choose **Other** and enter a host name. A normalized visitor name can be recorded once per day. Visitors do not need an account.
+6. Admins manage visitor records in the separate **Visitors** dashboard, including searching by visitor or host, filtering by date, and deleting an incorrect record. Visitor visits are stored separately and do not affect student/staff attendance-day counts. The Visitors tab refreshes every 10 seconds while open.
+7. Admins can search users and attendance, see each user's distinct attendance-day count in the user list and attendance records, and export the count to Excel or PDF. Admins can also activate/deactivate users, edit details, delete a user with their attendance history, or delete an individual attendance record. Deletions require confirmation. The Attendance tab refreshes when opened and every 10 seconds while visible.
 
 ## Important deployment notes
 
@@ -90,7 +91,7 @@ The command updates the password for that existing administrator. It does not cr
 - `.env.example` contains placeholders only; keep `.env` out of Git.
 - Set the deployment/runtime timezone to UTC if possible; attendance timestamps are stored as server timestamps and displayed in `Africa/Lagos`.
 - Attendance relies on the registered username and an active QR session; it is not strong identity proof.
-- Add provider/edge rate limiting (for example, Cloudflare or your hosting platform) to `/api/attendance/verify` before public production use. In-memory rate limiting is intentionally not used because it is unreliable across serverless instances.
+- Add provider/edge rate limiting (for example, Cloudflare or your hosting platform) to public check-in endpoints before public production use. In-memory rate limiting is intentionally not used because it is unreliable across serverless instances.
 - Back up PostgreSQL regularly and restrict admin access to trusted personnel.
 
 ## Deploy to Vercel
@@ -111,8 +112,11 @@ Keep `ADMIN_EMAIL` and `ADMIN_PASSWORD` local for initial seeding or password re
 ## Main routes
 
 - `/admin/login` — administrator login
-- `/admin` — admin dashboard, users, QR session and attendance reports
+- `/admin` — admin dashboard, users, QR sessions, attendance, and visitors
 - `/attendance` — participant page opened by the reusable printed QR
+- `/api/visitor-hosts` — public active host list used by visitor check-in
+- `/api/visitor-visits` — visitor check-in and authenticated visitor listing
+- `/api/visitor-visits/[id]` — authenticated visitor-record deletion
 - `/api/people` — authenticated registration/listing
 - `/api/people/[id]` — authenticated user editing/deletion
 - `/api/sessions` — authenticated session and QR generation
@@ -123,4 +127,4 @@ Keep `ADMIN_EMAIL` and `ADMIN_PASSWORD` local for initial seeding or password re
 
 ## Notes
 
-The system intentionally has no student/staff accounts: participants use their short unique ID after scanning the posted QR. Only administrators can register and manage people. The first administrator is created by the seed script.
+Students and staff use their registered usernames; visitors submit their name and host without creating an account. Only administrators can register and manage students and staff. The first administrator is created by the seed script.
