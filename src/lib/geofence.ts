@@ -27,5 +27,6 @@ export function isWithinGeofence({
   officeLongitude: number;
   radiusMeters: number;
 }) {
-  return distanceInMeters(latitude, longitude, officeLatitude, officeLongitude) + accuracy <= radiusMeters;
+  return distanceInMeters(latitude, longitude, officeLatitude, officeLongitude) <= radiusMeters
+    && accuracy <= radiusMeters;
 }

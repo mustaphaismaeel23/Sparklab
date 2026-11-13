@@ -90,7 +90,7 @@ The command updates the password for that existing administrator. It does not cr
 
 - Geolocation requires HTTPS on deployed sites. On localhost, browsers generally allow location access without HTTPS.
 - Set `APP_URL` to the public HTTPS origin before deployment; the reusable QR points to this address.
-- Set `OFFICE_LATITUDE`, `OFFICE_LONGITUDE`, and `OFFICE_RADIUS_METERS` on the server. Check-ins are rejected unless the reported GPS position and its accuracy fit within the configured radius.
+- Set `OFFICE_LATITUDE`, `OFFICE_LONGITUDE`, and `OFFICE_RADIUS_METERS` on the server. Check-ins require the reported GPS point to be within the radius and GPS accuracy to be no worse than the radius. Since GPS is approximate, the actual position can be slightly outside the boundary.
 - Use a managed PostgreSQL database. Apply schema changes before deploying; this project currently uses `prisma db push` and has no committed migration history.
 - Set strong, private `JWT_SECRET` and admin credentials. Do not commit `.env`.
 - `.env.example` contains placeholders only; keep `.env` out of Git.

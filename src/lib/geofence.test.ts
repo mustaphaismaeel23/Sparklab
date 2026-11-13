@@ -26,11 +26,22 @@ test('rejects a location outside the office radius', () => {
   }), false);
 });
 
-test('rejects a location whose reported uncertainty crosses the radius', () => {
+test('accepts a reported point inside the radius when GPS uncertainty overlaps the edge', () => {
   equal(isWithinGeofence({
     latitude: office.latitude + 0.0008,
     longitude: office.longitude,
     accuracy: 20,
+    officeLatitude: office.latitude,
+    officeLongitude: office.longitude,
+    radiusMeters: 100
+  }), true);
+});
+
+test('rejects an imprecise location even when its reported point is at the office', () => {
+  equal(isWithinGeofence({
+    latitude: office.latitude,
+    longitude: office.longitude,
+    accuracy: 101,
     officeLatitude: office.latitude,
     officeLongitude: office.longitude,
     radiusMeters: 100
