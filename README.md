@@ -31,7 +31,6 @@ A full-stack Next.js application for SPARKLAB Creativity and Innovation Hub. Adm
    ```env
    DATABASE_URL="postgresql://postgres:YOUR_PASSWORD@localhost:5432/sparklab_attendance?schema=public"
    JWT_SECRET="use-a-random-secret-of-at-least-32-characters"
-   APP_URL="http://localhost:3000"
    OFFICE_RADIUS_METERS="100"
    ADMIN_NAME="SPARKLAB Administrator"
    ADMIN_EMAIL="admin@yourdomain.com"
@@ -87,7 +86,7 @@ The command updates the password for that existing administrator. It does not cr
 ## Important deployment notes
 
 - Geolocation requires HTTPS on deployed sites. On localhost, browsers generally allow location access without HTTPS.
-- Set `APP_URL` to the public HTTPS origin before deployment; the reusable QR points to this address.
+- The reusable QR points to the same host used by the admin page, so participants reach the deployment where the session was started.
 - Set `OFFICE_RADIUS_METERS` on the server (100 m by default). Admins must start each session at the check-in point with GPS accuracy no worse than this radius. Check-ins require the reported point and its accuracy to be within the same radius of the session's captured location. Rejected check-ins show estimated distance and GPS accuracy. Since GPS is approximate, the actual position can be slightly outside the boundary.
 - Use a managed PostgreSQL database. Apply schema changes before deploying; this project currently uses `prisma db push` and has no committed migration history.
 - Set strong, private `JWT_SECRET` and admin credentials. Do not commit `.env`.
@@ -106,9 +105,8 @@ The command updates the password for that existing administrator. It does not cr
 5. Add these Vercel environment variables for Production:
    - `DATABASE_URL`: Supabase Transaction Pooler connection string (port `6543`) for Vercel serverless deployments.
    - `JWT_SECRET`: a private random secret of at least 32 characters.
-   - `APP_URL`: your deployed HTTPS origin, for example `https://your-project.vercel.app`.
    - `OFFICE_RADIUS_METERS`: the allowed radius around each session's captured admin location, such as `100`.
-6. Deploy. The build script generates Prisma Client and builds Next.js. Set `APP_URL` to the final Vercel domain and redeploy if the domain changes.
+6. Deploy. The build script generates Prisma Client and builds Next.js.
 
 The app automatically enables Prisma's PgBouncer-compatible mode for Supabase Transaction Pooler URLs.
 

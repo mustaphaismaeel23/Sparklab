@@ -37,8 +37,7 @@ export async function POST(request: Request) {
         locationAccuracy: body.accuracy
       }
     });
-    const origin = process.env.APP_URL || new URL(request.url).origin;
-    const attendanceUrl = new URL('/attendance', origin).toString();
+    const attendanceUrl = new URL('/attendance', request.url).toString();
     const qrDataUrl = await QRCode.toDataURL(attendanceUrl, { width: 420, margin: 2, errorCorrectionLevel: 'H' });
     return NextResponse.json({
       session: { id: session.id, title: session.title, endsAt: session.endsAt, locationAccuracy: session.locationAccuracy },
