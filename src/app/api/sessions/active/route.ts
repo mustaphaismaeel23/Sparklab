@@ -19,8 +19,7 @@ export async function GET(request: Request) {
       id: session.id,
       title: session.title,
       startsAt: session.startsAt,
-      endsAt: session.endsAt,
-      locationAccuracy: session.locationAccuracy
+      endsAt: session.endsAt
     } : null,
     attendanceUrl,
     qrDataUrl

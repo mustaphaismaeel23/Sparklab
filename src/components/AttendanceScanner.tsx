@@ -1,6 +1,5 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { getCurrentPosition } from '@/lib/browser-geolocation';
 
 export default function AttendanceScanner() {
   const [sessionToken, setSessionToken] = useState('');
@@ -16,17 +15,13 @@ export default function AttendanceScanner() {
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     setBusy(true);
-    setMessage('Getting a precise GPS reading. Keep this page open...');
+    setMessage('Verifying attendance...');
     setResult(null);
 
     try {
-      const position = await getCurrentPosition();
       const payload = {
         ...(sessionToken ? { sessionToken } : {}),
-        username: username.trim().toLowerCase(),
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-        accuracy: position.coords.accuracy
+        username: username.trim().toLowerCase()
       };
       const response = await fetch('/api/attendance/verify', {
         method: 'POST',
@@ -54,7 +49,7 @@ export default function AttendanceScanner() {
     <form onSubmit={submit} className="mt-7 space-y-3">
       <label htmlFor="attendance-username" className="block text-sm font-semibold">Your username</label>
       <input id="attendance-username" required minLength={3} maxLength={24} value={username} onChange={event => setUsername(event.target.value.toLowerCase().replace(/\s+/g, '-'))} placeholder="e.g. amina-yusuf" autoCapitalize="none" autoCorrect="off" className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-600"/>
-      <p className="text-xs text-slate-500">Location is checked for this attendance only and is not saved. Allow precise location access.</p>
+      <p className="text-xs text-slate-500">Attendance is available while an administrator has an active session. Each person can check in once per day.</p>
       <button disabled={busy} className="w-full rounded-xl bg-blue-700 px-4 py-3 font-semibold text-white disabled:opacity-50">{busy ? 'VERIFYING...' : 'VERIFY & RECORD ATTENDANCE'}</button>
     </form>
     {message && <div role="status" className={`mt-4 rounded-xl p-3 text-sm ${result ? 'bg-green-50 text-green-800' : 'bg-amber-50 text-amber-900'}`}>{message}</div>}

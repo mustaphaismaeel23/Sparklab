@@ -50,9 +50,6 @@ model AttendanceSession {
   active     Boolean      @default(true)
   startsAt   DateTime     @default(now())
   endsAt     DateTime?
-  locationLatitude  Float?
-  locationLongitude Float?
-  locationAccuracy  Float?
   createdAt  DateTime     @default(now())
   attendance Attendance[]
 

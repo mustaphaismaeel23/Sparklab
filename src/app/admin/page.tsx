@@ -1,10 +1,9 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
-import { getCurrentPosition } from '@/lib/browser-geolocation';
 
 type Person = { id: string; username: string | null; fullName: string; phone: string; email: string | null; category: 'STUDENT' | 'STAFF'; department: string; active: boolean; registeredAt: string; daysAttended: number };
 type RecordRow = { id: string; name: string; username: string; category: string; department: string; date: string; time: string; daysAttended: number; status: string; session: string };
-type Session = { id: string; title: string; endsAt: string | null; locationAccuracy: number | null };
+type Session = { id: string; title: string; endsAt: string | null };
 type Tab = 'overview' | 'people' | 'attendance' | 'session';
 const button = 'rounded-xl px-4 py-2 text-sm font-semibold';
 
@@ -190,18 +189,14 @@ export default function AdminPage() {
 
   async function createSession() {
     setBusy(true);
-    setNotice('Capturing the administrator location. Keep this page open...');
+    setNotice('Starting attendance session...');
     try {
-      const position = await getCurrentPosition();
       const response = await fetch('/api/sessions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: sessionTitle,
-          durationMinutes: duration,
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-          accuracy: position.coords.accuracy
+          durationMinutes: duration
         })
       });
       const data = await response.json();
@@ -295,7 +290,7 @@ export default function AdminPage() {
       {tab === 'session' && <div className="grid gap-5 lg:grid-cols-2">
         <div className="rounded-2xl border bg-white p-5">
           <h2 className="font-bold">Create attendance session</h2>
-          <p className="mt-1 text-sm text-slate-500">Starting a session captures this device’s location as its check-in center. The printed QR stays the same; a no-limit session remains active until you start another session.</p>
+          <p className="mt-1 text-sm text-slate-500">Start a session to enable check-in. The printed QR stays the same; a no-limit session remains active until you start another session.</p>
           <label className="mt-4 block text-sm font-medium">Session title<input value={sessionTitle} onChange={event => setSessionTitle(event.target.value)} className="mt-1 w-full rounded-xl border px-3 py-2"/></label>
           <label className="mt-4 block text-sm font-medium">Session duration
             <select value={duration ?? 'unlimited'} onChange={event => setDuration(event.target.value === 'unlimited' ? null : Number(event.target.value))} className="mt-1 w-full rounded-xl border px-3 py-2">
@@ -308,7 +303,7 @@ export default function AdminPage() {
             </select>
           </label>
           <button disabled={busy} onClick={() => void createSession()} className="mt-5 w-full rounded-xl bg-blue-700 px-4 py-3 font-semibold text-white">{busy ? 'Creating...' : 'Start attendance session'}</button>
-          {session ? <p className="mt-4 text-sm text-slate-600">Active session: <b>{session.title}</b>{session.locationAccuracy === null ? <><br/><span className="text-amber-700">This session has no captured location. Start a new session to enable check-in.</span></> : <><br/>Check-in center captured (GPS accuracy ±{Math.round(session.locationAccuracy)} m).</>}{session.endsAt ? <><br/>Expires: {new Date(session.endsAt).toLocaleString('en-NG', { timeZone: 'Africa/Lagos' })}</> : <><br/>No expiration. Each person can check in once per day.</>}</p> : <p className="mt-4 text-sm text-amber-700">No active session. Start one before participants check in.</p>}
+          {session ? <p className="mt-4 text-sm text-slate-600">Active session: <b>{session.title}</b>{session.endsAt ? <><br/>Expires: {new Date(session.endsAt).toLocaleString('en-NG', { timeZone: 'Africa/Lagos' })}</> : <><br/>No expiration. Each person can check in once per day.</>}</p> : <p className="mt-4 text-sm text-amber-700">No active session. Start one before participants check in.</p>}
         </div>
         <div className="flex min-h-80 flex-col items-center justify-center rounded-2xl border bg-white p-5 text-center">{qr ? <><h2 className="font-bold">Reusable attendance QR code</h2><img src={qr} alt="Reusable SPARKLAB attendance QR code" className="mt-3 w-72 max-w-full"/><p className="mt-2 text-sm text-slate-500">Print this code once and keep it at the attendance table.</p><a href={qr} download="sparklab-attendance-qr.png" className="mt-3 text-sm font-semibold text-blue-700 underline">Download QR to print</a></> : <><div className="text-5xl">▦</div><p className="mt-3 font-semibold">QR code is loading</p></>}</div>
       </div>}
