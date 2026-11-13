@@ -1,5 +1,28 @@
 @import "tailwindcss";
+@theme {
+  --color-brand-navy: #005088;
+  --color-brand-navy-dark: #003f68;
+  --color-brand-gold: #f8b040;
+  --color-brand-gold-deep: #7a4c00;
+  --color-brand-gold-soft: #fff3d8;
+  --color-brand-ink: #17364b;
+}
+
 :root { color-scheme: light; }
 * { box-sizing: border-box; }
-body { margin: 0; background: #f5f7fb; color: #172033; font-family: Arial, Helvetica, sans-serif; }
+body {
+  margin: 0;
+  background-color: #fffaf1;
+  background-image:
+    radial-gradient(circle at 8% 0%, rgb(248 176 64 / 12%), transparent 28rem),
+    radial-gradient(circle at 92% 8%, rgb(0 80 136 / 7%), transparent 30rem);
+  background-attachment: fixed;
+  color: #17364b;
+  font-family: Arial, Helvetica, sans-serif;
+}
 button, input, select { font: inherit; }
+button, a, input, select { accent-color: #005088; }
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible {
+  outline: 3px solid rgb(248 176 64 / 80%);
+  outline-offset: 2px;
+}

@@ -1,8 +1,27 @@
 'use client';
 import { useRef, useState } from 'react';
+import BrandLogo from '@/components/BrandLogo';
+
 export default function LoginPage() {
   const [email,setEmail]=useState(''); const [password,setPassword]=useState(''); const [error,setError]=useState(''); const [busy,setBusy]=useState(false);
   const submitting = useRef(false);
   async function submit(e:React.FormEvent){e.preventDefault();if(submitting.current)return;submitting.current=true;setBusy(true);setError('');try{const r=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})});const d=await r.json();if(!r.ok)throw new Error(d.error);window.location.replace('/admin');}catch(e){setError(e instanceof Error?e.message:'Unable to sign in.');}finally{submitting.current=false;setBusy(false);}}
-  return <main className="flex min-h-screen items-center justify-center p-4"><form onSubmit={submit} className="w-full max-w-md rounded-3xl bg-white p-8 shadow-xl"><div className="mb-6 text-center"><div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-700 text-xl font-bold text-white">S</div><h1 className="text-2xl font-bold">SPARKLAB Admin</h1><p className="mt-1 text-sm text-slate-500">Sign in to manage attendance</p></div><label htmlFor="admin-email" className="mb-1 block text-sm font-semibold">Email address</label><input id="admin-email" type="email" autoComplete="username" required value={email} onChange={e=>setEmail(e.target.value)} disabled={busy} className="mb-4 w-full rounded-xl border border-slate-300 px-4 py-3" placeholder="admin@example.com"/><label htmlFor="admin-password" className="mb-1 block text-sm font-semibold">Password</label><input id="admin-password" type="password" autoComplete="current-password" required value={password} onChange={e=>setPassword(e.target.value)} disabled={busy} className="mb-4 w-full rounded-xl border border-slate-300 px-4 py-3" placeholder="Your password"/>{error&&<p role="alert" className="mb-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}<button type="submit" disabled={busy} aria-busy={busy} className="w-full rounded-xl bg-blue-700 px-4 py-3 font-semibold text-white disabled:opacity-50">{busy?'Signing in...':'Sign in'}</button></form></main>;
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-brand-gold-soft p-4">
+      <form onSubmit={submit} className="w-full max-w-md rounded-3xl border-2 border-brand-gold bg-white p-8 shadow-xl">
+        <div className="mb-6 text-center">
+          <BrandLogo priority className="mx-auto mb-3 h-28 w-[154px] object-contain" />
+          <p className="text-xs font-bold tracking-[.1em] text-brand-navy">SPARKLAB CREATIVITY AND INNOVATION HUB</p>
+          <h1 className="mt-2 text-2xl font-bold">Admin sign in</h1>
+          <p className="mt-1 text-sm text-slate-500">Sign in to manage attendance</p>
+        </div>
+        <label htmlFor="admin-email" className="mb-1 block text-sm font-semibold">Email address</label>
+        <input id="admin-email" type="email" autoComplete="username" required value={email} onChange={e=>setEmail(e.target.value)} disabled={busy} className="mb-4 w-full rounded-xl border border-slate-300 px-4 py-3" placeholder="admin@example.com"/>
+        <label htmlFor="admin-password" className="mb-1 block text-sm font-semibold">Password</label>
+        <input id="admin-password" type="password" autoComplete="current-password" required value={password} onChange={e=>setPassword(e.target.value)} disabled={busy} className="mb-4 w-full rounded-xl border border-slate-300 px-4 py-3" placeholder="Your password"/>
+        {error&&<p role="alert" className="mb-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+        <button type="submit" disabled={busy} aria-busy={busy} className="w-full rounded-xl bg-brand-navy px-4 py-3 font-semibold text-white disabled:opacity-50">{busy?'Signing in...':'Sign in'}</button>
+      </form>
+    </main>
+  );
 }

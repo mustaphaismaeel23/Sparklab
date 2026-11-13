@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
+import BrandLogo from '@/components/BrandLogo';
 
 type Person = { id: string; username: string | null; fullName: string; phone: string; email: string | null; category: 'STUDENT' | 'STAFF'; department: string; active: boolean; registeredAt: string; daysAttended: number };
 type RecordRow = { id: string; name: string; username: string; category: string; department: string; date: string; time: string; daysAttended: number; status: string; session: string };
@@ -30,7 +31,7 @@ export default function AdminPage() {
   const [qr, setQr] = useState('');
   const [session, setSession] = useState<Session | null>(null);
   const [duration, setDuration] = useState<number | null>(null);
-  const [sessionTitle, setSessionTitle] = useState('SPARKLAB Attendance');
+  const [sessionTitle, setSessionTitle] = useState('SPARKLAB CREATIVITY AND INNOVATION HUB Attendance');
 
   async function load() {
     const auth = await fetch('/api/auth/me');
@@ -289,29 +290,29 @@ export default function AdminPage() {
     window.location.href = '/admin/login';
   }
 
-  if (!ready) return <div className="p-10 text-center">Loading SPARKLAB dashboard...</div>;
+  if (!ready) return <div className="p-10 text-center text-brand-navy">Loading SPARKLAB dashboard...</div>;
 
   return <main className="min-h-screen">
-    <header className="border-b bg-white"><div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4"><div className="flex items-center gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-700 font-bold text-white">S</div><div><p className="font-bold">SPARKLAB</p><p className="text-xs text-slate-500">Attendance Management</p></div></div><div className="flex items-center gap-3"><span className="hidden text-sm text-slate-500 sm:block">{admin?.name}</span><button onClick={logout} className={`${button} border border-slate-200`}>Sign out</button></div></div></header>
+    <header className="border-b-4 border-brand-gold bg-white shadow-sm"><div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-2"><BrandLogo priority className="h-16 w-[88px] object-contain sm:h-[72px] sm:w-[98px]"/><div className="flex items-center gap-3"><span className="hidden text-sm text-slate-500 sm:block">{admin?.name}</span><button onClick={logout} className={`${button} border border-slate-200`}>Sign out</button></div></div></header>
     <div className="mx-auto max-w-7xl px-5 py-7">
-      <div className="mb-6"><p className="text-sm font-semibold text-blue-700">ADMINISTRATION</p><h1 className="text-3xl font-bold">Dashboard</h1><p className="mt-1 text-sm text-slate-500">Manage registrations and attendance records.</p></div>
-      <nav className="mb-6 flex flex-wrap gap-2">{(['overview', 'people', 'attendance', 'visitors', 'session'] as Tab[]).map(tabName => <button key={tabName} onClick={() => { setTab(tabName); setNotice(''); }} className={`${button} capitalize ${tab === tabName ? 'bg-blue-700 text-white' : 'border border-slate-200 bg-white'}`}>{tabName === 'people' ? 'Users' : tabName === 'session' ? 'QR Session' : tabName}</button>)}</nav>
-      {notice && <div className="mb-5 rounded-xl border border-blue-100 bg-blue-50 p-3 text-sm text-blue-900">{notice}</div>}
+      <div className="mb-6"><p className="text-sm font-semibold tracking-wide text-brand-navy">ADMINISTRATION</p><h1 className="text-3xl font-bold">Dashboard</h1><p className="mt-1 text-sm text-slate-500">Manage registrations and attendance records.</p></div>
+      <nav className="mb-6 flex flex-wrap gap-2">{(['overview', 'people', 'attendance', 'visitors', 'session'] as Tab[]).map(tabName => <button key={tabName} onClick={() => { setTab(tabName); setNotice(''); }} className={`${button} capitalize ${tab === tabName ? 'bg-brand-navy text-white' : 'border border-slate-200 bg-white'}`}>{tabName === 'people' ? 'Users' : tabName === 'session' ? 'QR Session' : tabName}</button>)}</nav>
+      {notice && <div className="mb-5 rounded-xl border border-brand-gold bg-brand-gold-soft p-3 text-sm text-brand-navy-dark">{notice}</div>}
       {tab === 'overview' && <>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">{[{ label: 'Registered students', value: students }, { label: 'Registered staff', value: staff }, { label: "Today's attendance", value: todayRecords.length }, { label: 'Visitors today', value: todayVisitorRecords.length }, { label: 'Present today', value: presentUsernames.size }, { label: 'Absent today', value: absentToday }].map(item => <div key={item.label} className="rounded-2xl border border-slate-200 bg-white p-5"><p className="text-sm text-slate-500">{item.label}</p><p className="mt-2 text-3xl font-bold">{item.value}</p></div>)}</div>
-        <div className="mt-6 grid gap-5 lg:grid-cols-2"><div className="rounded-2xl border bg-white p-5"><h2 className="font-bold">Quick actions</h2><div className="mt-4 flex flex-wrap gap-2"><button onClick={() => setTab('people')} className={`${button} bg-blue-700 text-white`}>Register a user</button><button onClick={() => setTab('session')} className={`${button} border`}>Create attendance QR</button><button onClick={() => setTab('attendance')} className={`${button} border`}>View attendance</button><button onClick={() => setTab('visitors')} className={`${button} border`}>View visitors</button></div></div><div className="rounded-2xl border bg-white p-5"><h2 className="font-bold">Today's attendance</h2><p className="mt-2 text-3xl font-bold">{todayRecords.length}</p><p className="text-sm text-slate-500">Attendance entries recorded today (Africa/Lagos).</p></div></div>
+        <div className="mt-6 grid gap-5 lg:grid-cols-2"><div className="rounded-2xl border bg-white p-5"><h2 className="font-bold">Quick actions</h2><div className="mt-4 flex flex-wrap gap-2"><button onClick={() => setTab('people')} className={`${button} bg-brand-navy text-white`}>Register a user</button><button onClick={() => setTab('session')} className={`${button} border border-brand-gold`}>Create attendance QR</button><button onClick={() => setTab('attendance')} className={`${button} border border-brand-gold`}>View attendance</button><button onClick={() => setTab('visitors')} className={`${button} border border-brand-gold`}>View visitors</button></div></div><div className="rounded-2xl border bg-white p-5"><h2 className="font-bold">Today's attendance</h2><p className="mt-2 text-3xl font-bold text-brand-navy">{todayRecords.length}</p><p className="text-sm text-slate-500">Attendance entries recorded today (Africa/Lagos).</p></div></div>
       </>}
       {tab === 'people' && <div className="grid gap-5 lg:grid-cols-[360px_1fr]">
         <form onSubmit={register} className="h-fit rounded-2xl border bg-white p-5">
           <h2 className="mb-4 font-bold">Register student or staff</h2>
           {([['fullName', 'Full name'], ['username', 'Username'], ['phone', 'Phone number'], ['email', 'Email (optional)'], ['department', 'Department / Programme']] as const).map(([key, label]) => <label key={key} className="mb-3 block text-sm font-medium">{label}<input required={key !== 'email'} maxLength={key === 'username' ? 24 : undefined} value={form[key]} onChange={event => setForm({ ...form, [key]: key === 'username' ? event.target.value.toLowerCase().replace(/\s+/g, '-') : event.target.value })} className="mt-1 w-full rounded-xl border px-3 py-2"/>{key === 'username' && <span className="text-xs text-slate-500">3–24 letters, numbers, or hyphens; must be unique.</span>}</label>)}
           <label className="mb-4 block text-sm font-medium">Category<select value={form.category} onChange={event => setForm({ ...form, category: event.target.value })} className="mt-1 w-full rounded-xl border px-3 py-2"><option value="STUDENT">Student</option><option value="STAFF">Staff</option></select></label>
-          <button disabled={busy} className="w-full rounded-xl bg-blue-700 px-4 py-3 font-semibold text-white">{busy ? 'Saving...' : 'Register user'}</button>
+          <button disabled={busy} className="w-full rounded-xl bg-brand-navy px-4 py-3 font-semibold text-white">{busy ? 'Saving...' : 'Register user'}</button>
         </form>
         <div className="rounded-2xl border bg-white p-5">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><h2 className="font-bold">Registered users ({visiblePeople.length})</h2><input value={q} onChange={event => setQ(event.target.value)} placeholder="Search name or username" className="rounded-xl border px-3 py-2 text-sm"/></div>
           <div className="overflow-x-auto"><table className="w-full text-left text-sm">
-            <thead className="bg-slate-50 text-slate-500"><tr>{['Name / Username', 'Category', 'Department', 'Days attended', 'Status', 'Action'].map(heading => <th key={heading} className="p-3">{heading}</th>)}</tr></thead>
+            <thead className="bg-brand-gold-soft text-brand-navy-dark"><tr>{['Name / Username', 'Category', 'Department', 'Days attended', 'Status', 'Action'].map(heading => <th key={heading} className="p-3">{heading}</th>)}</tr></thead>
             <tbody>{visiblePeople.map(person => <tr key={person.id} className="border-t">
               <td className="p-3"><b>{person.fullName}</b><div className="text-xs text-slate-500">@{person.username || 'pending backfill'}</div></td>
               <td className="p-3">{person.category}</td>
@@ -319,8 +320,8 @@ export default function AdminPage() {
               <td className="p-3">{person.daysAttended}</td>
               <td className="p-3">{person.active ? 'Active' : 'Inactive'}</td>
               <td className="p-3"><div className="flex flex-wrap gap-2">
-                <button onClick={() => void editPerson(person)} className="text-blue-700 underline">Edit</button>
-                <button onClick={() => void updatePerson(person, !person.active)} className="text-blue-700 underline">{person.active ? 'Deactivate' : 'Activate'}</button>
+                <button onClick={() => void editPerson(person)} className="text-brand-navy underline">Edit</button>
+                <button onClick={() => void updatePerson(person, !person.active)} className="text-brand-navy underline">{person.active ? 'Deactivate' : 'Activate'}</button>
                 <button disabled={busy} onClick={() => void deletePerson(person)} className="text-red-700 underline disabled:opacity-50">Delete</button>
               </div></td>
             </tr>)}</tbody>
@@ -330,9 +331,9 @@ export default function AdminPage() {
       {tab === 'attendance' && <div className="rounded-2xl border bg-white p-5">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><h2 className="font-bold">Attendance records ({visibleRecords.length})</h2><div className="flex flex-wrap gap-2"><button onClick={() => setAttendanceRefresh(value => value + 1)} className={`${button} border`}>Refresh</button><input type="date" value={date} onChange={event => setDate(event.target.value)} className="rounded-xl border px-3 py-2 text-sm"/><input value={q} onChange={event => setQ(event.target.value)} placeholder="Search name or username" className="rounded-xl border px-3 py-2 text-sm"/><select value={category} onChange={event => setCategory(event.target.value)} className="rounded-xl border px-3 py-2 text-sm"><option value="ALL">All categories</option><option value="STUDENT">Students</option><option value="STAFF">Staff</option></select></div></div>
         {attendanceError && <p role="alert" className="mb-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">{attendanceError}</p>}
-        <div className="mb-4 flex gap-2"><button onClick={() => void exportReport('xlsx')} className={`${button} bg-green-700 text-white`}>Export Excel</button><button onClick={() => void exportReport('pdf')} className={`${button} bg-slate-800 text-white`}>Export PDF</button></div>
+        <div className="mb-4 flex gap-2"><button onClick={() => void exportReport('xlsx')} className={`${button} bg-brand-navy text-white`}>Export Excel</button><button onClick={() => void exportReport('pdf')} className={`${button} border-2 border-brand-gold bg-brand-gold-soft text-brand-navy`}>Export PDF</button></div>
         <div className="overflow-x-auto"><table className="w-full text-left text-sm">
-          <thead className="bg-slate-50 text-slate-500"><tr>{['Name / Username', 'Category', 'Department', 'Date', 'Time', 'Days attended', 'Status', 'Action'].map(heading => <th key={heading} className="p-3">{heading}</th>)}</tr></thead>
+          <thead className="bg-brand-gold-soft text-brand-navy-dark"><tr>{['Name / Username', 'Category', 'Department', 'Date', 'Time', 'Days attended', 'Status', 'Action'].map(heading => <th key={heading} className="p-3">{heading}</th>)}</tr></thead>
           <tbody>{visibleRecords.map(record => <tr key={record.id} className="border-t">
             <td className="p-3"><b>{record.name}</b><div className="text-xs text-slate-500">@{record.username || 'pending backfill'}</div></td>
             <td className="p-3">{record.category}</td>
@@ -349,7 +350,7 @@ export default function AdminPage() {
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><h2 className="font-bold">Visitor records ({visibleVisitorRecords.length})</h2><div className="flex flex-wrap gap-2"><button onClick={() => setVisitorRefresh(value => value + 1)} className={`${button} border`}>Refresh</button><input type="date" value={visitorDate} onChange={event => setVisitorDate(event.target.value)} className="rounded-xl border px-3 py-2 text-sm"/><input value={visitorQuery} onChange={event => setVisitorQuery(event.target.value)} placeholder="Search visitor or host" className="rounded-xl border px-3 py-2 text-sm"/></div></div>
         {visitorError && <p role="alert" className="mb-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">{visitorError}</p>}
         <div className="overflow-x-auto"><table className="w-full text-left text-sm">
-          <thead className="bg-slate-50 text-slate-500"><tr>{['Visitor name', 'Visiting', 'Date', 'Time', 'Session', 'Action'].map(heading => <th key={heading} className="p-3">{heading}</th>)}</tr></thead>
+          <thead className="bg-brand-gold-soft text-brand-navy-dark"><tr>{['Visitor name', 'Visiting', 'Date', 'Time', 'Session', 'Action'].map(heading => <th key={heading} className="p-3">{heading}</th>)}</tr></thead>
           <tbody>{visibleVisitorRecords.map(record => <tr key={record.id} className="border-t">
             <td className="p-3 font-semibold">{record.visitorName}</td>
             <td className="p-3">{record.hostName}</td>
@@ -375,10 +376,10 @@ export default function AdminPage() {
               <option value={480}>8 hours</option>
             </select>
           </label>
-          <button disabled={busy} onClick={() => void createSession()} className="mt-5 w-full rounded-xl bg-blue-700 px-4 py-3 font-semibold text-white">{busy ? 'Creating...' : 'Start attendance session'}</button>
+          <button disabled={busy} onClick={() => void createSession()} className="mt-5 w-full rounded-xl bg-brand-navy px-4 py-3 font-semibold text-white">{busy ? 'Creating...' : 'Start attendance session'}</button>
           {session ? <p className="mt-4 text-sm text-slate-600">Active session: <b>{session.title}</b>{session.endsAt ? <><br/>Expires: {new Date(session.endsAt).toLocaleString('en-NG', { timeZone: 'Africa/Lagos' })}</> : <><br/>No expiration. Each person can check in once per day.</>}</p> : <p className="mt-4 text-sm text-amber-700">No active session. Start one before participants check in.</p>}
         </div>
-        <div className="flex min-h-80 flex-col items-center justify-center rounded-2xl border bg-white p-5 text-center">{qr ? <><h2 className="font-bold">Reusable attendance QR code</h2><img src={qr} alt="Reusable SPARKLAB attendance QR code" className="mt-3 w-72 max-w-full"/><p className="mt-2 text-sm text-slate-500">Print this code once and keep it at the attendance table.</p><a href={qr} download="sparklab-attendance-qr.png" className="mt-3 text-sm font-semibold text-blue-700 underline">Download QR to print</a></> : <><div className="text-5xl">▦</div><p className="mt-3 font-semibold">QR code is loading</p></>}</div>
+        <div className="flex min-h-80 flex-col items-center justify-center rounded-2xl border bg-white p-5 text-center">{qr ? <><h2 className="font-bold">Reusable attendance QR code</h2><img src={qr} alt="Reusable SPARKLAB CREATIVITY AND INNOVATION HUB attendance QR code" className="mt-3 w-72 max-w-full"/><p className="mt-2 text-sm text-slate-500">Print this code once and keep it at the attendance table.</p><a href={qr} download="sparklab-attendance-qr.png" className="mt-3 text-sm font-semibold text-brand-navy underline">Download QR to print</a></> : <><div className="text-5xl text-brand-navy">▦</div><p className="mt-3 font-semibold">QR code is loading</p></>}</div>
       </div>}
     </div>
   </main>;

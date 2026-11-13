@@ -10,7 +10,7 @@ export async function POST(request: Request) {
   if (!(await getAdmin())) return jsonError('Unauthorized', 401);
   try {
     const body = z.object({
-      title: z.string().trim().min(2).max(100).default('SPARKLAB Attendance'),
+      title: z.string().trim().min(2).max(100).default('SPARKLAB CREATIVITY AND INNOVATION HUB Attendance'),
       durationMinutes: z.number().int().min(5).max(720).nullable().default(null)
     }).parse(await request.json());
 
