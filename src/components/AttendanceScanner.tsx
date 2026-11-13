@@ -23,22 +23,37 @@ export default function AttendanceScanner() {
         ...(sessionToken ? { sessionToken } : {}),
         username: username.trim().toLowerCase()
       };
-      const response = await fetch('/api/attendance/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      const data = await response.json();
+      let response: Response;
+      try {
+        response = await fetch('/api/attendance/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+      } catch {
+        setMessage('The connection was interrupted. Your check-in may have been recorded; ask an administrator to confirm before retrying.');
+        return;
+      }
+
+      let data: { error?: string; message?: string; attendance?: Record<string, string> };
+      try {
+        data = await response.json();
+      } catch {
+        setMessage('The server response was interrupted. Your check-in may have been recorded; ask an administrator to confirm before retrying.');
+        return;
+      }
       if (!response.ok) {
         setMessage(data.error || 'Verification failed.');
+        return;
+      }
+      if (!data.message || !data.attendance) {
+        setMessage('The server response was incomplete. Your check-in may have been recorded; ask an administrator to confirm.');
         return;
       }
 
       setResult(data.attendance);
       setMessage(data.message);
       setUsername('');
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Attendance could not be recorded. Please try again.');
     } finally {
       setBusy(false);
     }
