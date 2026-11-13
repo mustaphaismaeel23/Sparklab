@@ -69,7 +69,10 @@ export async function POST(request: Request) {
       officeLongitude: geofence.longitude,
       radiusMeters: geofence.radiusMeters
     })) {
-      return jsonError('Your location could not be verified within the office area. Enable precise location and try again.', 403);
+      const message = input.accuracy >= geofence.radiusMeters
+        ? 'Your GPS reading is too imprecise for the office boundary. Turn on Precise location and retry near a window or outdoors.'
+        : `Your location could not be confirmed within ${geofence.radiusMeters} m of the office. Check Precise location and try again at the attendance site.`;
+      return jsonError(message, 403);
     }
 
     const person = await prisma.person.findUnique({ where: { username: input.username } });
