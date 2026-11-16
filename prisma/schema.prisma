@@ -21,6 +21,11 @@ enum SubscriptionPlan {
   MONTHLY
 }
 
+enum WalkInCategory {
+  VISITOR
+  GUEST
+}
+
 enum AttendanceStatus {
   PRESENT
 }
@@ -72,6 +77,7 @@ model AttendanceSession {
 
 model VisitorVisit {
   id             String            @id @default(cuid())
+  category       WalkInCategory    @default(VISITOR)
   visitorName    String
   visitorNameKey String
   visitDay       String            @db.VarChar(10)
@@ -82,7 +88,8 @@ model VisitorVisit {
   hostPerson     Person?           @relation("VisitorHost", fields: [hostPersonId], references: [id], onDelete: SetNull)
   session        AttendanceSession @relation(fields: [sessionId], references: [id], onDelete: Restrict)
 
-  @@unique([visitorNameKey, visitDay])
+  @@unique([category, visitorNameKey, visitDay])
+  @@index([category, checkedAt])
   @@index([checkedAt])
   @@index([hostPersonId, checkedAt])
 }

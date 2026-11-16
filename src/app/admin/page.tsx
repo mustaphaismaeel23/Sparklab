@@ -5,9 +5,10 @@ import { uniqueLatestAttendanceByPerson } from '@/lib/attendance-days';
 
 type UserCategory = 'STUDENT' | 'STAFF' | 'VISITOR' | 'GUEST' | 'SUBSCRIBER';
 type SubscriptionPlan = 'DAILY' | 'WEEKLY' | 'MONTHLY';
+type WalkInCategory = 'VISITOR' | 'GUEST';
 type Person = { id: string; username: string | null; fullName: string; phone: string; email: string | null; category: UserCategory; department: string; subscriptionPlan: SubscriptionPlan | null; subscriptionStartDate: string | null; subscriptionExpiryDate: string | null; active: boolean; registeredAt: string; daysAttended: number };
 type RecordRow = { id: string; personId: string; name: string; username: string; category: UserCategory; department: string; subscriptionPlan: SubscriptionPlan | null; subscriptionStartDate: string; subscriptionExpiryDate: string; date: string; time: string; daysAttended: number; status: string; session: string };
-type VisitorRecord = { id: string; visitorName: string; hostName: string; date: string; time: string; session: string };
+type VisitorRecord = { id: string; category: WalkInCategory; visitorName: string; hostName: string; date: string; time: string; session: string };
 type Session = { id: string; title: string; endsAt: string | null };
 type Tab = 'overview' | 'people' | 'attendance' | 'visitors' | 'session';
 const button = 'rounded-xl px-4 py-2 text-sm font-semibold';
@@ -25,6 +26,7 @@ const categoryPluralLabels: Record<UserCategory, string> = {
   GUEST: 'Guests',
   SUBSCRIBER: 'Subscribers'
 };
+const registrationCategories: Exclude<UserCategory, 'GUEST'>[] = ['STUDENT', 'STAFF', 'VISITOR', 'SUBSCRIBER'];
 const categoryDescriptions: Record<UserCategory, string> = {
   STUDENT: "Individuals enrolled in the hub's learning programmes.",
   STAFF: 'Employees and team members working at the hub.',
@@ -47,6 +49,7 @@ export default function AdminPage() {
   const [visitorRecords, setVisitorRecords] = useState<VisitorRecord[]>([]);
   const [q, setQ] = useState('');
   const [visitorQuery, setVisitorQuery] = useState('');
+  const [visitorCategory, setVisitorCategory] = useState<'ALL' | WalkInCategory>('ALL');
   const [category, setCategory] = useState('ALL');
   const [date, setDate] = useState('');
   const [visitorDate, setVisitorDate] = useState('');
@@ -161,7 +164,8 @@ export default function AdminPage() {
   ) as Record<UserCategory, number>;
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Lagos' });
   const todayRecords = records.filter(record => record.date === today);
-  const todayVisitorRecords = visitorRecords.filter(record => record.date === today);
+  const todayVisitorRecords = visitorRecords.filter(record => record.date === today && record.category === 'VISITOR');
+  const todayGuestRecords = visitorRecords.filter(record => record.date === today && record.category === 'GUEST');
   const presentUsernames = new Set(todayRecords.map(record => record.username));
   const absentToday = people.filter(person => person.active && !presentUsernames.has(person.username ?? '')).length;
   const visiblePeople = useMemo(() => people.filter(person =>
@@ -174,9 +178,10 @@ export default function AdminPage() {
     (!q || record.name.toLowerCase().includes(q.toLowerCase()) || record.username.toLowerCase().includes(q.toLowerCase()))
   )), [records, date, category, q]);
   const visibleVisitorRecords = useMemo(() => visitorRecords.filter(record =>
+    (visitorCategory === 'ALL' || record.category === visitorCategory) &&
     (!visitorDate || record.date === visitorDate) &&
     (!visitorQuery || record.visitorName.toLowerCase().includes(visitorQuery.toLowerCase()) || record.hostName.toLowerCase().includes(visitorQuery.toLowerCase()))
-  ), [visitorRecords, visitorDate, visitorQuery]);
+  ), [visitorRecords, visitorCategory, visitorDate, visitorQuery]);
 
   async function register(event: React.FormEvent) {
     event.preventDefault();
@@ -300,13 +305,14 @@ export default function AdminPage() {
   }
 
   async function deleteVisitorRecord(record: VisitorRecord) {
-    if (!window.confirm(`Delete ${record.visitorName}'s visitor check-in for ${record.date}? This cannot be undone.`)) return;
+    const categoryLabel = record.category === 'GUEST' ? 'guest' : 'visitor';
+    if (!window.confirm(`Delete ${record.visitorName}'s ${categoryLabel} check-in for ${record.date}? This cannot be undone.`)) return;
     setBusy(true);
     try {
       const response = await fetch(`/api/visitor-visits/${record.id}`, { method: 'DELETE' });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error);
-      setNotice('Visitor record deleted.');
+      setNotice('Walk-in record deleted.');
       await load();
     } catch (error) {
       setNotice(error instanceof Error ? error.message : 'Could not delete the visitor record.');
@@ -365,21 +371,22 @@ export default function AdminPage() {
     <header className="border-b-4 border-brand-gold bg-white shadow-sm"><div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-2"><BrandLogo priority className="h-16 w-[88px] object-contain sm:h-[72px] sm:w-[98px]"/><div className="flex items-center gap-3"><span className="hidden text-sm text-slate-500 sm:block">{admin?.name}</span><button onClick={logout} className={`${button} border border-slate-200`}>Sign out</button></div></div></header>
     <div className="mx-auto max-w-7xl px-5 py-7">
       <div className="mb-6"><p className="text-sm font-semibold tracking-wide text-brand-navy">ADMINISTRATION</p><h1 className="text-3xl font-bold">Dashboard</h1><p className="mt-1 text-sm text-slate-500">Manage registrations and attendance records. Overview and attendance update automatically every 10 seconds.</p></div>
-      <nav className="mb-6 flex flex-wrap gap-2">{(['overview', 'people', 'attendance', 'visitors', 'session'] as Tab[]).map(tabName => <button key={tabName} onClick={() => { setTab(tabName); setNotice(''); }} className={`${button} capitalize ${tab === tabName ? 'bg-brand-navy text-white' : 'border border-slate-200 bg-white'}`}>{tabName === 'people' ? 'Users' : tabName === 'session' ? 'QR Session' : tabName}</button>)}</nav>
+      <nav className="mb-6 flex flex-wrap gap-2">{(['overview', 'people', 'attendance', 'visitors', 'session'] as Tab[]).map(tabName => <button key={tabName} onClick={() => { setTab(tabName); setNotice(''); }} className={`${button} capitalize ${tab === tabName ? 'bg-brand-navy text-white' : 'border border-slate-200 bg-white'}`}>{tabName === 'people' ? 'Users' : tabName === 'session' ? 'QR Session' : tabName === 'visitors' ? 'Visitors & Guests' : tabName}</button>)}</nav>
       {notice && <div className="mb-5 rounded-xl border border-brand-gold bg-brand-gold-soft p-3 text-sm text-brand-navy-dark">{notice}</div>}
       {tab === 'overview' && <>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">{[
           { label: 'Registered students', value: registeredCounts.STUDENT },
           { label: 'Registered staff', value: registeredCounts.STAFF },
           { label: 'Registered visitors', value: registeredCounts.VISITOR },
-          { label: 'Registered guests', value: registeredCounts.GUEST },
+          { label: 'Existing registered guests', value: registeredCounts.GUEST },
           { label: 'Registered subscribers', value: registeredCounts.SUBSCRIBER },
           { label: "Today's registered attendance", value: todayRecords.length },
           { label: 'Walk-in visitors today', value: todayVisitorRecords.length },
+          { label: 'Walk-in guests today', value: todayGuestRecords.length },
           { label: 'Present registered people', value: presentUsernames.size },
           { label: 'Absent registered people', value: absentToday }
         ].map(item => <div key={item.label} className="rounded-2xl border border-slate-200 bg-white p-5"><p className="text-sm text-slate-500">{item.label}</p><p className="mt-2 text-3xl font-bold">{item.value}</p></div>)}</div>
-        <div className="mt-6 grid gap-5 lg:grid-cols-2"><div className="rounded-2xl border bg-white p-5"><h2 className="font-bold">Quick actions</h2><div className="mt-4 flex flex-wrap gap-2"><button onClick={() => setTab('people')} className={`${button} bg-brand-navy text-white`}>Register a user</button><button onClick={() => setTab('session')} className={`${button} border border-brand-gold`}>Create attendance QR</button><button onClick={() => setTab('attendance')} className={`${button} border border-brand-gold`}>View attendance</button><button onClick={() => setTab('visitors')} className={`${button} border border-brand-gold`}>View visitors</button></div></div><div className="rounded-2xl border bg-white p-5"><h2 className="font-bold">Today's attendance</h2><p className="mt-2 text-3xl font-bold text-brand-navy">{todayRecords.length + todayVisitorRecords.length}</p><p className="text-sm text-slate-500">Registered and walk-in entries recorded today (Africa/Lagos).</p></div></div>
+        <div className="mt-6 grid gap-5 lg:grid-cols-2"><div className="rounded-2xl border bg-white p-5"><h2 className="font-bold">Quick actions</h2><div className="mt-4 flex flex-wrap gap-2"><button onClick={() => setTab('people')} className={`${button} bg-brand-navy text-white`}>Register a user</button><button onClick={() => setTab('session')} className={`${button} border border-brand-gold`}>Create attendance QR</button><button onClick={() => setTab('attendance')} className={`${button} border border-brand-gold`}>View attendance</button><button onClick={() => setTab('visitors')} className={`${button} border border-brand-gold`}>View Visitors & Guests</button></div></div><div className="rounded-2xl border bg-white p-5"><h2 className="font-bold">Today's attendance</h2><p className="mt-2 text-3xl font-bold text-brand-navy">{todayRecords.length + todayVisitorRecords.length + todayGuestRecords.length}</p><p className="text-sm text-slate-500">Registered, Visitor, and Guest entries recorded today (Africa/Lagos).</p></div></div>
       </>}
       {tab === 'people' && <div className="grid gap-5 lg:grid-cols-[360px_1fr]">
         <form onSubmit={register} className="h-fit rounded-2xl border bg-white p-5">
@@ -394,7 +401,7 @@ export default function AdminPage() {
                 ? { subscriptionStartDate: today }
                 : {})
             }));
-          }} className="mt-1 w-full rounded-xl border px-3 py-2">{(Object.keys(categoryLabels) as UserCategory[]).map(userCategory => <option key={userCategory} value={userCategory}>{categoryLabels[userCategory]}</option>)}</select><span className="mt-1 block text-xs text-slate-500">{categoryDescriptions[form.category]}</span></label>
+          }} className="mt-1 w-full rounded-xl border px-3 py-2">{registrationCategories.map(userCategory => <option key={userCategory} value={userCategory}>{categoryLabels[userCategory]}</option>)}</select><span className="mt-1 block text-xs text-slate-500">{categoryDescriptions[form.category]}</span></label>
           {form.category === 'SUBSCRIBER' && <div className="space-y-3 rounded-xl bg-slate-50 p-3">
             <label className="block text-sm font-medium">Subscription plan<select required value={form.subscriptionPlan} onChange={event => setForm({ ...form, subscriptionPlan: event.target.value as SubscriptionPlan })} className="mt-1 w-full rounded-xl border px-3 py-2">{Object.entries(subscriptionPlanLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
             <label className="block text-sm font-medium">Subscription start date<input required type="date" value={form.subscriptionStartDate} onChange={event => setForm({ ...form, subscriptionStartDate: event.target.value })} className="mt-1 w-full rounded-xl border px-3 py-2"/></label>
@@ -442,19 +449,20 @@ export default function AdminPage() {
         </table>{visibleRecords.length === 0 && <p className="p-8 text-center text-sm text-slate-500">No attendance records found.</p>}</div>
       </div>}
       {tab === 'visitors' && <div className="rounded-2xl border bg-white p-5">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><h2 className="font-bold">Visitor records ({visibleVisitorRecords.length})</h2><div className="flex flex-wrap gap-2"><button onClick={() => setVisitorRefresh(value => value + 1)} className={`${button} border`}>Refresh</button><input type="date" value={visitorDate} onChange={event => setVisitorDate(event.target.value)} className="rounded-xl border px-3 py-2 text-sm"/><input value={visitorQuery} onChange={event => setVisitorQuery(event.target.value)} placeholder="Search visitor or host" className="rounded-xl border px-3 py-2 text-sm"/></div></div>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><h2 className="font-bold">Visitor & Guest records ({visibleVisitorRecords.length})</h2><div className="flex flex-wrap gap-2"><button onClick={() => setVisitorRefresh(value => value + 1)} className={`${button} border`}>Refresh</button><select value={visitorCategory} onChange={event => setVisitorCategory(event.target.value as 'ALL' | WalkInCategory)} className="rounded-xl border px-3 py-2 text-sm"><option value="ALL">All walk-ins</option><option value="VISITOR">Visitors</option><option value="GUEST">Guests</option></select><input type="date" value={visitorDate} onChange={event => setVisitorDate(event.target.value)} className="rounded-xl border px-3 py-2 text-sm"/><input value={visitorQuery} onChange={event => setVisitorQuery(event.target.value)} placeholder="Search visitor, guest, or host" className="rounded-xl border px-3 py-2 text-sm"/></div></div>
         {visitorError && <p role="alert" className="mb-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">{visitorError}</p>}
         <div className="overflow-x-auto"><table className="w-full text-left text-sm">
-          <thead className="bg-brand-gold-soft text-brand-navy-dark"><tr>{['Visitor name', 'Visiting', 'Date', 'Time', 'Session', 'Action'].map(heading => <th key={heading} className="p-3">{heading}</th>)}</tr></thead>
+          <thead className="bg-brand-gold-soft text-brand-navy-dark"><tr>{['Name', 'Category', 'Host / Inviter', 'Date', 'Time', 'Session', 'Action'].map(heading => <th key={heading} className="p-3">{heading}</th>)}</tr></thead>
           <tbody>{visibleVisitorRecords.map(record => <tr key={record.id} className="border-t">
             <td className="p-3 font-semibold">{record.visitorName}</td>
+            <td className="p-3">{record.category === 'GUEST' ? 'Guest' : 'Visitor'}</td>
             <td className="p-3">{record.hostName}</td>
             <td className="p-3">{record.date}</td>
             <td className="p-3">{record.time}</td>
             <td className="p-3">{record.session}</td>
             <td className="p-3"><button disabled={busy} onClick={() => void deleteVisitorRecord(record)} className="text-red-700 underline disabled:opacity-50">Delete</button></td>
           </tr>)}</tbody>
-        </table>{visibleVisitorRecords.length === 0 && <p className="p-8 text-center text-sm text-slate-500">No visitor records found.</p>}</div>
+        </table>{visibleVisitorRecords.length === 0 && <p className="p-8 text-center text-sm text-slate-500">No Visitor or Guest records found.</p>}</div>
       </div>}
       {tab === 'session' && <div className="grid gap-5 lg:grid-cols-2">
         <div className="rounded-2xl border bg-white p-5">

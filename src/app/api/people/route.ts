@@ -18,7 +18,6 @@ const schema = z.discriminatedUnion('category', [
   z.object({ ...personFields, category: z.literal('STUDENT') }),
   z.object({ ...personFields, category: z.literal('STAFF') }),
   z.object({ ...personFields, category: z.literal('VISITOR') }),
-  z.object({ ...personFields, category: z.literal('GUEST') }),
   z.object({
     ...personFields,
     category: z.literal('SUBSCRIBER'),

@@ -25,9 +25,10 @@ export async function GET(request: Request) {
   const daysByPerson = countAttendanceDaysByPerson(checkins);
   const visitorDaysByName = new Map<string, Set<string>>();
   for (const visit of visits) {
-    const days = visitorDaysByName.get(visit.visitorNameKey) ?? new Set<string>();
+    const key = `${visit.category}:${visit.visitorNameKey}`;
+    const days = visitorDaysByName.get(key) ?? new Set<string>();
     days.add(visit.visitDay);
-    visitorDaysByName.set(visit.visitorNameKey, days);
+    visitorDaysByName.set(key, days);
   }
   const planLabels = { DAILY: 'Daily Pass', WEEKLY: 'Weekly Pass', MONTHLY: 'Monthly Pass' } as const;
   const rows = [
@@ -48,12 +49,12 @@ export async function GET(request: Request) {
     ...visits.map(visit => ({
       Name: visit.visitorName,
       Username: '',
-      Category: 'VISITOR',
+      Category: visit.category,
       Department: `Host: ${visit.hostName}`,
       'Subscription Plan': '',
       'Subscription Start': '',
       'Subscription Expiry': '',
-      'Days Attended': visitorDaysByName.get(visit.visitorNameKey)?.size ?? 1,
+      'Days Attended': visitorDaysByName.get(`${visit.category}:${visit.visitorNameKey}`)?.size ?? 1,
       Date: visit.checkedAt.toLocaleDateString('en-CA', { timeZone: 'Africa/Lagos' }),
       Time: visit.checkedAt.toLocaleTimeString('en-NG', { timeZone: 'Africa/Lagos', hour: '2-digit', minute: '2-digit' }),
       Status: 'Present',

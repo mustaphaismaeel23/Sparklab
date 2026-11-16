@@ -9,6 +9,7 @@ import { prisma } from '@/lib/prisma';
 
 const schema = z.object({
   sessionToken: z.string().min(20).max(200).optional(),
+  category: z.enum(['VISITOR', 'GUEST']).default('VISITOR'),
   visitorName: z.string().trim().min(2).max(120),
   hostPersonId: z.string().min(1).max(32).optional(),
   otherHostName: z.string().trim().min(2).max(120).optional()
@@ -28,10 +29,12 @@ function getErrorCode(error: unknown) {
   return 'unknown';
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   if (!(await getAdmin())) return jsonError('Unauthorized', 401);
 
+  const category = new URL(request.url).searchParams.get('category');
   const visits = await prisma.visitorVisit.findMany({
+    where: category === 'VISITOR' || category === 'GUEST' ? { category } : undefined,
     include: { session: { select: { title: true } } },
     orderBy: { checkedAt: 'desc' },
     take: 1000
@@ -39,6 +42,7 @@ export async function GET() {
   return NextResponse.json({
     visits: visits.map(visit => ({
       id: visit.id,
+      category: visit.category,
       visitorName: visit.visitorName,
       hostName: visit.hostName,
       date: visit.checkedAt.toLocaleDateString('en-CA', { timeZone: 'Africa/Lagos' }),
@@ -87,6 +91,7 @@ export async function POST(request: Request) {
 
     const visit = await prisma.visitorVisit.create({
       data: {
+        category: input.category,
         visitorName: input.visitorName,
         visitorNameKey: normalizeVisitorName(input.visitorName),
         visitDay: getAttendanceDayKey(now),
@@ -97,8 +102,9 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json({
-      message: 'VISITOR CHECK-IN RECORDED!',
+      message: `${input.category} CHECK-IN RECORDED!`,
       visit: {
+        category: visit.category,
         visitorName: visit.visitorName,
         hostName: visit.hostName,
         date: visit.checkedAt.toLocaleDateString('en-NG', { timeZone: 'Africa/Lagos', day: '2-digit', month: 'long', year: 'numeric' }),
@@ -107,7 +113,7 @@ export async function POST(request: Request) {
     }, { status: 201 });
   } catch (error) {
     if (isUniqueConstraintError(error)) {
-      return jsonError('A visitor with this name has already checked in today.', 409);
+      return jsonError(`A ${input.category.toLowerCase()} with this name has already checked in today.`, 409);
     }
     console.error('Visitor check-in failed:', getErrorCode(error));
     return jsonError('Visitor check-in could not be recorded. Please try again.', 500);
