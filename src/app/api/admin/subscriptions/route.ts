@@ -4,14 +4,19 @@ import { getAdmin } from '@/lib/auth';
 import { getAttendanceDayKey } from '@/lib/attendance-days';
 import { jsonError } from '@/lib/http';
 import { prisma } from '@/lib/prisma';
-import { DEFAULT_PLAN_PRICES_KOBO, SUBSCRIPTION_PLANS } from '@/lib/subscriptions';
+import {
+  DEFAULT_PLAN_PRICES_KOBO,
+  DEFAULT_STUDENT_MONTHLY_PRICE_KOBO,
+  SUBSCRIPTION_PLANS
+} from '@/lib/subscriptions';
 
 const planPriceSchema = z.object({
   plan: z.enum(['DAILY', 'WEEKLY', 'MONTHLY']),
   amountNgn: z.number().int().min(1).max(10_000_000)
 });
 const pricesSchema = z.object({
-  prices: z.array(planPriceSchema).length(3)
+  prices: z.array(planPriceSchema).length(3),
+  studentMonthlyAmountNgn: z.number().int().min(1).max(10_000_000)
 }).superRefine(({ prices }, context) => {
   if (new Set(prices.map(price => price.plan)).size !== SUBSCRIPTION_PLANS.length) {
     context.addIssue({ code: 'custom', message: 'Provide each pass price exactly once.' });
@@ -21,12 +26,16 @@ const discountSchema = z.object({
   code: z.string().trim().min(3).max(40).regex(/^[A-Z0-9][A-Z0-9_-]*$/i),
   label: z.string().trim().min(2).max(100),
   amountNgn: z.number().int().min(1).max(10_000_000),
+  category: z.enum(['STUDENT', 'SUBSCRIBER']).default('SUBSCRIBER'),
   plan: z.enum(['DAILY', 'WEEKLY', 'MONTHLY']).nullable().optional(),
   startsOn: z.iso.date().optional(),
   expiresOn: z.iso.date().optional()
 }).superRefine((data, context) => {
   if (data.startsOn && data.expiresOn && data.expiresOn < data.startsOn) {
     context.addIssue({ code: 'custom', path: ['expiresOn'], message: 'Expiry date must be on or after the start date.' });
+  }
+  if (data.category === 'STUDENT' && data.plan) {
+    context.addIssue({ code: 'custom', path: ['plan'], message: 'Student discounts apply to the monthly student fee, not a subscriber pass.' });
   }
 });
 
@@ -40,8 +49,9 @@ function getErrorCode(error: unknown) {
 export async function GET() {
   if (!(await getAdmin())) return jsonError('Unauthorized', 401);
 
-  const [savedPrices, discounts, payments] = await Promise.all([
+  const [savedPrices, studentPrice, discounts, payments] = await Promise.all([
     prisma.subscriptionPlanPrice.findMany(),
+    prisma.studentMonthlyPrice.findUnique({ where: { id: 'student-monthly' } }),
     prisma.subscriberDiscount.findMany({ orderBy: { createdAt: 'desc' } }),
     prisma.subscriptionPayment.findMany({
       include: {
@@ -57,11 +67,13 @@ export async function GET() {
   }));
   return NextResponse.json({
     prices,
+    studentMonthlyAmountNgn: (studentPrice?.amountKobo ?? DEFAULT_STUDENT_MONTHLY_PRICE_KOBO) / 100,
     discounts: discounts.map(discount => ({
       id: discount.id,
       code: discount.code,
       label: discount.label,
       amountNgn: discount.amountKobo / 100,
+      category: discount.category,
       plan: discount.plan,
       redemptionCount: discount.redemptionCount,
       startsOn: discount.startsAt ? getAttendanceDayKey(discount.startsAt) : null,
@@ -73,6 +85,7 @@ export async function GET() {
       reference: payment.reference,
       name: payment.person.fullName,
       username: payment.person.username,
+      category: payment.category,
       plan: payment.plan,
       status: payment.status,
       amountNgn: payment.amountKobo / 100,
@@ -88,14 +101,20 @@ export async function GET() {
 export async function PUT(request: Request) {
   if (!(await getAdmin())) return jsonError('Unauthorized', 401);
   try {
-    const { prices } = pricesSchema.parse(await request.json());
-    await prisma.$transaction(prices.map(({ plan, amountNgn }) =>
+    const { prices, studentMonthlyAmountNgn } = pricesSchema.parse(await request.json());
+    await prisma.$transaction([
+      ...prices.map(({ plan, amountNgn }) =>
       prisma.subscriptionPlanPrice.upsert({
         where: { plan },
         update: { amountKobo: amountNgn * 100 },
         create: { plan, amountKobo: amountNgn * 100 }
+      })),
+      prisma.studentMonthlyPrice.upsert({
+        where: { id: 'student-monthly' },
+        update: { amountKobo: studentMonthlyAmountNgn * 100 },
+        create: { id: 'student-monthly', amountKobo: studentMonthlyAmountNgn * 100 }
       })
-    ));
+    ]);
     return NextResponse.json({ saved: true });
   } catch (error) {
     if (error instanceof z.ZodError) return jsonError(error.issues.map(issue => issue.message).join(' '), 400);
@@ -113,6 +132,7 @@ export async function POST(request: Request) {
         code: data.code.toUpperCase(),
         label: data.label,
         amountKobo: data.amountNgn * 100,
+        category: data.category,
         plan: data.plan ?? null,
         ...(data.startsOn ? { startsAt: new Date(`${data.startsOn}T00:00:00+01:00`) } : {}),
         ...(data.expiresOn ? { expiresAt: new Date(`${data.expiresOn}T23:59:59.999+01:00`) } : {})

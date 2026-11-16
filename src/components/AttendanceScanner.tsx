@@ -131,6 +131,7 @@ export default function AttendanceScanner() {
   const [paymentRequired, setPaymentRequired] = useState(false);
   const [paymentComplete, setPaymentComplete] = useState(false);
   const [planPrices, setPlanPrices] = useState<Record<SubscriptionPlan, number> | null>(null);
+  const [studentMonthlyPrice, setStudentMonthlyPrice] = useState<number | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan>('DAILY');
   const [paymentEmail, setPaymentEmail] = useState('');
   const [discountCode, setDiscountCode] = useState('');
@@ -148,7 +149,7 @@ export default function AttendanceScanner() {
       setMessage(paymentStatus === 'success'
         ? params.get('checkedIn') === 'true'
           ? 'Payment confirmed and attendance recorded.'
-          : 'Payment confirmed. Your pass is active, but the attendance session has ended. Scan an active QR code to check in.'
+          : 'Payment confirmed and your paid access has been updated. If attendance was not recorded, return to check-in and try again while a session is active.'
         : paymentStatus === 'pending'
           ? 'Payment confirmation is pending. Please wait a moment, then scan the QR again if attendance was not recorded.'
           : 'Payment was not completed. Select Subscriber and try again.');
@@ -161,6 +162,21 @@ export default function AttendanceScanner() {
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Could not load pass prices.');
     setPlanPrices(data.prices);
+    setStudentMonthlyPrice(data.studentMonthlyAmountNgn);
+  }
+
+  async function openSubscriptionPayment() {
+    if (username.trim().length < 3) {
+      setPaymentError('Enter your subscriber username before choosing a pass.');
+      return;
+    }
+    setPaymentRequired(true);
+    setPaymentError('');
+    try {
+      await loadPlanPrices();
+    } catch (error) {
+      setPaymentError(error instanceof Error ? error.message : 'Could not load pass prices.');
+    }
   }
 
   async function submitAttendance(event: React.FormEvent) {
@@ -195,9 +211,9 @@ export default function AttendanceScanner() {
         return;
       }
       if (!response.ok) {
-        if (response.status === 403 && data.code === 'SUBSCRIPTION_REQUIRED') {
+        if (response.status === 403 && (data.code === 'SUBSCRIPTION_REQUIRED' || data.code === 'STUDENT_PAYMENT_REQUIRED')) {
           setPaymentRequired(true);
-          setMessage(data.error || 'Choose a pass to continue.');
+          setMessage(data.error || 'Choose a payment option to continue.');
           try {
             await loadPlanPrices();
           } catch (error) {
@@ -233,7 +249,7 @@ export default function AttendanceScanner() {
           username: username.trim().toLowerCase(),
           ...(sessionToken ? { sessionToken } : {}),
           email: paymentEmail.trim(),
-          plan: selectedPlan,
+          ...(checkinCategory === 'SUBSCRIBER' ? { plan: selectedPlan } : {}),
           ...(discountCode.trim() ? { discountCode: discountCode.trim() } : {})
         })
       });
@@ -269,27 +285,30 @@ export default function AttendanceScanner() {
       <label htmlFor="attendance-username" className="block text-sm font-semibold">Your username</label>
       <input id="attendance-username" required minLength={3} maxLength={24} value={username} onChange={event => setUsername(event.target.value.toLowerCase().replace(/\s+/g, '-'))} placeholder="e.g. amina-yusuf" autoCapitalize="none" autoCorrect="off" className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-brand-gold"/>
       <p className="text-xs text-slate-500">Attendance is available while an administrator has an active session. Each person can check in once per day. Subscribers must have an active pass.</p>
+      {(checkinCategory === 'SUBSCRIBER' || checkinCategory === 'STUDENT') && <button type="button" disabled={busy || username.trim().length < 3} onClick={() => void openSubscriptionPayment()} className="w-full rounded-xl border-2 border-brand-gold bg-brand-gold-soft px-4 py-3 font-semibold text-brand-navy disabled:opacity-50">{checkinCategory === 'STUDENT' ? 'PAY / RENEW STUDENT ACCESS' : 'PAY / RENEW SUBSCRIBER PASS'}</button>}
       <button disabled={busy} className="w-full rounded-xl bg-brand-navy px-4 py-3 font-semibold text-white disabled:opacity-50">{busy ? 'VERIFYING...' : 'VERIFY & RECORD ATTENDANCE'}</button>
       <button type="button" onClick={() => chooseMode('choose')} className="w-full rounded-xl border border-slate-200 px-4 py-3 font-semibold">Back</button>
     </form>}
     {mode === 'member' && paymentRequired && <form onSubmit={startSubscriptionPayment} className="mt-7 space-y-4">
       <div className="rounded-xl bg-brand-gold-soft p-3 text-sm text-brand-navy-dark">{message}</div>
-      <p className="text-sm text-slate-600">Choose a pass. It starts after Paystack confirms payment and lasts 24 hours, 7 days, or 30 days.</p>
-      <fieldset className="space-y-2">
-        <legend className="mb-2 text-sm font-semibold">Select your pass</legend>
-        {(['DAILY', 'WEEKLY', 'MONTHLY'] as SubscriptionPlan[]).map(plan => <label key={plan} className={`flex cursor-pointer items-center justify-between rounded-xl border p-3 ${selectedPlan === plan ? 'border-brand-navy bg-slate-50' : 'border-slate-200'}`}>
-          <span className="flex items-center gap-3"><input type="radio" name="subscriber-plan" value={plan} checked={selectedPlan === plan} onChange={() => setSelectedPlan(plan)}/><span className="font-semibold">{subscriptionPlanLabels[plan]}</span></span>
-          <strong>{planPrices ? new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 0 }).format(planPrices[plan]) : 'Loading...'}</strong>
-        </label>)}
-      </fieldset>
+      <p className="text-sm text-slate-600">{checkinCategory === 'STUDENT' ? 'Student access lasts 30 days from successful payment. Renewals extend from your current expiry.' : 'Choose a pass. It starts after Paystack confirms payment and lasts 24 hours, 7 days, or 30 days.'}</p>
+      {checkinCategory === 'STUDENT'
+        ? <div className="flex items-center justify-between rounded-xl border border-brand-navy bg-slate-50 p-3"><span className="font-semibold">Student Monthly Access</span><strong>{studentMonthlyPrice === null ? 'Loading...' : new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 0 }).format(studentMonthlyPrice)}</strong></div>
+        : <fieldset className="space-y-2">
+          <legend className="mb-2 text-sm font-semibold">Select your pass</legend>
+          {(['DAILY', 'WEEKLY', 'MONTHLY'] as SubscriptionPlan[]).map(plan => <label key={plan} className={`flex cursor-pointer items-center justify-between rounded-xl border p-3 ${selectedPlan === plan ? 'border-brand-navy bg-slate-50' : 'border-slate-200'}`}>
+            <span className="flex items-center gap-3"><input type="radio" name="subscriber-plan" value={plan} checked={selectedPlan === plan} onChange={() => setSelectedPlan(plan)}/><span className="font-semibold">{subscriptionPlanLabels[plan]}</span></span>
+            <strong>{planPrices ? new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 0 }).format(planPrices[plan]) : 'Loading...'}</strong>
+          </label>)}
+        </fieldset>}
       <label htmlFor="subscriber-payment-email" className="block text-sm font-semibold">Email for your Paystack receipt
         <input id="subscriber-payment-email" required type="email" autoComplete="email" value={paymentEmail} onChange={event => setPaymentEmail(event.target.value)} className="mt-1 w-full rounded-xl border px-4 py-3"/>
       </label>
       <label htmlFor="subscriber-discount-code" className="block text-sm font-semibold">Discount code (optional)
         <input id="subscriber-discount-code" maxLength={40} autoCapitalize="characters" value={discountCode} onChange={event => setDiscountCode(event.target.value.toUpperCase())} className="mt-1 w-full rounded-xl border px-4 py-3"/>
       </label>
-      {paymentError && <p role="alert" className="text-sm text-red-700">{paymentError}{!planPrices && <button type="button" onClick={() => void loadPlanPrices().catch(error => setPaymentError(error instanceof Error ? error.message : 'Could not load pass prices.'))} className="ml-2 underline">Retry</button>}</p>}
-      <button disabled={paymentBusy || !planPrices} className="w-full rounded-xl bg-brand-navy px-4 py-3 font-semibold text-white disabled:opacity-50">{paymentBusy ? 'OPENING PAYSTACK...' : 'CONTINUE TO PAYSTACK'}</button>
+      {paymentError && <p role="alert" className="text-sm text-red-700">{paymentError}{(checkinCategory === 'STUDENT' ? studentMonthlyPrice === null : !planPrices) && <button type="button" onClick={() => void loadPlanPrices().catch(error => setPaymentError(error instanceof Error ? error.message : 'Could not load pass prices.'))} className="ml-2 underline">Retry</button>}</p>}
+      <button disabled={paymentBusy || (checkinCategory === 'STUDENT' ? studentMonthlyPrice === null : !planPrices)} className="w-full rounded-xl bg-brand-navy px-4 py-3 font-semibold text-white disabled:opacity-50">{paymentBusy ? 'OPENING PAYSTACK...' : 'CONTINUE TO PAYSTACK'}</button>
       <button type="button" onClick={() => { setPaymentRequired(false); setMessage(''); }} className="w-full rounded-xl border border-slate-200 px-4 py-3 font-semibold">Back to check-in</button>
     </form>}
     {mode === 'member' && paymentComplete && <div role="status" className="mt-7 rounded-2xl border border-green-200 bg-green-50 p-4 text-center text-sm text-green-800">{message}</div>}

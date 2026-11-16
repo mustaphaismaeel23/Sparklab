@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { prisma } from '@/lib/prisma';
-import { getAttendanceDayKey, getAttendanceDayRange } from '@/lib/attendance-days';
+import { getAttendanceDayKey, getAttendanceDayRange, isSubscriptionActive } from '@/lib/attendance-days';
 import { verifyPaystackSignature } from '@/lib/paystack-signature';
 import {
   getSubscriptionBaseDate,
@@ -136,23 +136,54 @@ export async function completeSubscriptionPayment(reference: string) {
       select: {
         active: true,
         category: true,
+        subscriptionStartDate: true,
         subscriptionExpiryDate: true,
-        subscriptionExpiresAt: true
+        subscriptionStartsAt: true,
+        subscriptionExpiresAt: true,
+        studentAccessStartsAt: true,
+        studentAccessExpiresAt: true
       }
     });
-    if (person.category !== 'SUBSCRIBER') throw new Error('Payment user is not a subscriber.');
-
-    const start = getSubscriptionBaseDate(person.subscriptionExpiryDate, person.subscriptionExpiresAt, paidAt);
-    const expiry = getSubscriptionExpiry(start, payment.plan);
-    await transaction.person.update({
-      where: { id: payment.personId },
-      data: {
-        subscriptionPlan: payment.plan,
-        ...getSubscriptionDateFields(start, expiry),
-        subscriptionStartsAt: start,
-        subscriptionExpiresAt: expiry
-      }
-    });
+    const now = new Date();
+    let hasCurrentAccess = false;
+    let start: Date;
+    let expiry: Date;
+    if (payment.category === 'SUBSCRIBER' && person.category === 'SUBSCRIBER' && payment.plan) {
+      hasCurrentAccess = isSubscriptionActive(
+        person.subscriptionStartDate,
+        person.subscriptionExpiryDate,
+        now,
+        person.subscriptionStartsAt,
+        person.subscriptionExpiresAt
+      );
+      start = getSubscriptionBaseDate(person.subscriptionExpiryDate, person.subscriptionExpiresAt, paidAt);
+      expiry = getSubscriptionExpiry(start, payment.plan);
+      await transaction.person.update({
+        where: { id: payment.personId },
+        data: {
+          subscriptionPlan: payment.plan,
+          ...getSubscriptionDateFields(start, expiry),
+          subscriptionStartsAt: start,
+          subscriptionExpiresAt: expiry
+        }
+      });
+    } else if (payment.category === 'STUDENT' && person.category === 'STUDENT') {
+      hasCurrentAccess = isSubscriptionActive(
+        null,
+        null,
+        now,
+        person.studentAccessStartsAt,
+        person.studentAccessExpiresAt
+      );
+      start = getSubscriptionBaseDate(null, person.studentAccessExpiresAt, paidAt);
+      expiry = new Date(start.getTime() + payment.durationDays * 24 * 60 * 60 * 1000);
+      await transaction.person.update({
+        where: { id: payment.personId },
+        data: { studentAccessStartsAt: start, studentAccessExpiresAt: expiry }
+      });
+    } else {
+      throw new Error('Payment category does not match the user account.');
+    }
     if (payment.discountId) {
       await transaction.subscriberDiscount.update({
         where: { id: payment.discountId },
@@ -161,14 +192,15 @@ export async function completeSubscriptionPayment(reference: string) {
     }
 
     let checkedIn = false;
-    const now = new Date();
     const session = await transaction.attendanceSession.findUnique({
       where: { id: payment.sessionId }
     });
     if (
       person.active &&
-      start <= now &&
-      now < expiry &&
+      (
+        hasCurrentAccess ||
+        (start <= now && now < expiry)
+      ) &&
       session?.active &&
       session.startsAt <= now &&
       (session.endsAt === null || session.endsAt > now)

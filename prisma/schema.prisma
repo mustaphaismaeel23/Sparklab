@@ -36,6 +36,11 @@ enum SubscriptionPaymentStatus {
   FAILED
 }
 
+enum PayableCategory {
+  STUDENT
+  SUBSCRIBER
+}
+
 model Admin {
   id           String   @id @default(cuid())
   name         String
@@ -59,6 +64,8 @@ model Person {
   subscriptionExpiryDate DateTime?             @db.Date
   subscriptionStartsAt   DateTime?
   subscriptionExpiresAt  DateTime?
+  studentAccessStartsAt  DateTime?
+  studentAccessExpiresAt DateTime?
   active                 Boolean               @default(true)
   registeredAt           DateTime              @default(now())
   updatedAt              DateTime              @updatedAt
@@ -129,6 +136,7 @@ model SubscriberDiscount {
   code            String                @unique
   label           String
   amountKobo      Int
+  category        PayableCategory       @default(SUBSCRIBER)
   plan            SubscriptionPlan?
   redemptionCount Int                   @default(0)
   startsAt        DateTime?
@@ -145,7 +153,9 @@ model SubscriptionPayment {
   reference          String                    @unique
   personId           String
   sessionId          String
-  plan               SubscriptionPlan
+  category           PayableCategory           @default(SUBSCRIBER)
+  plan               SubscriptionPlan?
+  durationDays       Int                       @default(30)
   status             SubscriptionPaymentStatus @default(PENDING)
   currency           String                    @default("NGN")
   baseAmountKobo     Int
@@ -162,4 +172,10 @@ model SubscriptionPayment {
 
   @@index([personId, createdAt])
   @@index([status, createdAt])
+}
+
+model StudentMonthlyPrice {
+  id         String   @id @default("student-monthly")
+  amountKobo Int
+  updatedAt  DateTime @updatedAt
 }

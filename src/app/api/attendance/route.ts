@@ -25,6 +25,8 @@ export async function GET(request: Request) {
     subscriptionPlan: r.person.subscriptionPlan,
     subscriptionStartDate: r.person.subscriptionStartDate?.toISOString().slice(0, 10) ?? '',
     subscriptionExpiryDate: r.person.subscriptionExpiryDate?.toISOString().slice(0, 10) ?? '',
+    studentAccessStartsAt: r.person.studentAccessStartsAt?.toLocaleDateString('en-CA', { timeZone: 'Africa/Lagos' }) ?? '',
+    studentAccessExpiresAt: r.person.studentAccessExpiresAt?.toLocaleDateString('en-CA', { timeZone: 'Africa/Lagos' }) ?? '',
     date: r.checkedAt.toLocaleDateString('en-CA', { timeZone: 'Africa/Lagos' }),
     time: r.checkedAt.toLocaleTimeString('en-NG', { timeZone: 'Africa/Lagos', hour: '2-digit', minute: '2-digit' }),
     daysAttended: daysByPerson.get(r.personId) ?? 0,

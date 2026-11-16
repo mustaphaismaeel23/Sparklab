@@ -1,8 +1,10 @@
 import { getAttendanceDayKey } from '@/lib/attendance-days';
 
 export type SubscriptionPlan = 'DAILY' | 'WEEKLY' | 'MONTHLY';
+export type PayableCategory = 'STUDENT' | 'SUBSCRIBER';
 
 export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = ['DAILY', 'WEEKLY', 'MONTHLY'];
+export const DEFAULT_STUDENT_MONTHLY_PRICE_KOBO = 3_500_000;
 export const DEFAULT_PLAN_PRICES_KOBO: Record<SubscriptionPlan, number> = {
   DAILY: 250_000,
   WEEKLY: 1_000_000,

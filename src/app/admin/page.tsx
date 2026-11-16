@@ -7,8 +7,8 @@ import { uniqueLatestAttendanceByPerson } from '@/lib/attendance-days';
 type UserCategory = 'STUDENT' | 'STAFF' | 'VISITOR' | 'GUEST' | 'SUBSCRIBER';
 type SubscriptionPlan = 'DAILY' | 'WEEKLY' | 'MONTHLY';
 type WalkInCategory = 'VISITOR' | 'GUEST';
-type Person = { id: string; username: string | null; fullName: string; phone: string; email: string | null; category: UserCategory; department: string; subscriptionPlan: SubscriptionPlan | null; subscriptionStartDate: string | null; subscriptionExpiryDate: string | null; active: boolean; registeredAt: string; daysAttended: number };
-type RecordRow = { id: string; personId: string; name: string; username: string; category: UserCategory; department: string; subscriptionPlan: SubscriptionPlan | null; subscriptionStartDate: string; subscriptionExpiryDate: string; date: string; time: string; daysAttended: number; status: string; session: string };
+type Person = { id: string; username: string | null; fullName: string; phone: string; email: string | null; category: UserCategory; department: string; subscriptionPlan: SubscriptionPlan | null; subscriptionStartDate: string | null; subscriptionExpiryDate: string | null; studentAccessStartsAt: string | null; studentAccessExpiresAt: string | null; active: boolean; registeredAt: string; daysAttended: number };
+type RecordRow = { id: string; personId: string; name: string; username: string; category: UserCategory; department: string; subscriptionPlan: SubscriptionPlan | null; subscriptionStartDate: string; subscriptionExpiryDate: string; studentAccessStartsAt: string; studentAccessExpiresAt: string; date: string; time: string; daysAttended: number; status: string; session: string };
 type VisitorRecord = { id: string; category: WalkInCategory; visitorName: string; hostName: string; date: string; time: string; session: string };
 type Session = { id: string; title: string; endsAt: string | null };
 type Tab = 'overview' | 'people' | 'attendance' | 'visitors' | 'session' | 'subscriptions';
@@ -413,12 +413,16 @@ export default function AdminPage() {
         <div className="rounded-2xl border bg-white p-5">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><h2 className="font-bold">Registered users ({visiblePeople.length})</h2><div className="flex flex-wrap gap-2"><input value={q} onChange={event => setQ(event.target.value)} placeholder="Search name or username" className="rounded-xl border px-3 py-2 text-sm"/><select value={category} onChange={event => setCategory(event.target.value)} className="rounded-xl border px-3 py-2 text-sm"><option value="ALL">All categories</option>{(Object.keys(categoryLabels) as UserCategory[]).map(userCategory => <option key={userCategory} value={userCategory}>{categoryPluralLabels[userCategory]}</option>)}</select></div></div>
           <div className="overflow-x-auto"><table className="w-full text-left text-sm">
-            <thead className="bg-brand-gold-soft text-brand-navy-dark"><tr>{['Name / Username', 'Category', 'Department', 'Subscription', 'Days attended', 'Status', 'Action'].map(heading => <th key={heading} className="p-3">{heading}</th>)}</tr></thead>
+            <thead className="bg-brand-gold-soft text-brand-navy-dark"><tr>{['Name / Username', 'Category', 'Department', 'Paid access / Subscription', 'Days attended', 'Status', 'Action'].map(heading => <th key={heading} className="p-3">{heading}</th>)}</tr></thead>
             <tbody>{visiblePeople.map(person => <tr key={person.id} className="border-t">
               <td className="p-3"><b>{person.fullName}</b><div className="text-xs text-slate-500">@{person.username || 'pending backfill'}</div></td>
               <td className="p-3">{categoryLabels[person.category]}</td>
               <td className="p-3">{person.department}</td>
-              <td className="p-3">{person.category === 'SUBSCRIBER' && person.subscriptionPlan ? <>{subscriptionPlanLabels[person.subscriptionPlan]}<div className="text-xs text-slate-500">{person.subscriptionStartDate?.slice(0, 10)} – {person.subscriptionExpiryDate?.slice(0, 10)}</div></> : '—'}</td>
+              <td className="p-3">{person.category === 'STUDENT' && person.studentAccessStartsAt && person.studentAccessExpiresAt
+                ? <>Student paid access<div className="text-xs text-slate-500">{new Date(person.studentAccessStartsAt).toLocaleDateString('en-CA', { timeZone: 'Africa/Lagos' })} – {new Date(person.studentAccessExpiresAt).toLocaleDateString('en-CA', { timeZone: 'Africa/Lagos' })}</div></>
+                : person.category === 'SUBSCRIBER' && person.subscriptionPlan
+                  ? <>{subscriptionPlanLabels[person.subscriptionPlan]}<div className="text-xs text-slate-500">{person.subscriptionStartDate?.slice(0, 10)} – {person.subscriptionExpiryDate?.slice(0, 10)}</div></>
+                  : '—'}</td>
               <td className="p-3">{person.daysAttended}</td>
               <td className="p-3">{person.active ? 'Active' : 'Inactive'}</td>
               <td className="p-3"><div className="flex flex-wrap gap-2">
@@ -440,7 +444,11 @@ export default function AdminPage() {
             <td className="p-3"><b>{record.name}</b><div className="text-xs text-slate-500">@{record.username || 'pending backfill'}</div></td>
             <td className="p-3">{categoryLabels[record.category]}</td>
             <td className="p-3">{record.department}</td>
-            <td className="p-3">{record.category === 'SUBSCRIBER' && record.subscriptionPlan ? <>{subscriptionPlanLabels[record.subscriptionPlan]}<div className="text-xs text-slate-500">{record.subscriptionStartDate} – {record.subscriptionExpiryDate}</div></> : '—'}</td>
+            <td className="p-3">{record.category === 'STUDENT' && record.studentAccessExpiresAt
+              ? <>Student paid access<div className="text-xs text-slate-500">{record.studentAccessStartsAt} – {record.studentAccessExpiresAt}</div></>
+              : record.category === 'SUBSCRIBER' && record.subscriptionPlan
+                ? <>{subscriptionPlanLabels[record.subscriptionPlan]}<div className="text-xs text-slate-500">{record.subscriptionStartDate} – {record.subscriptionExpiryDate}</div></>
+                : '—'}</td>
             <td className="p-3">{record.date}</td>
             <td className="p-3">{record.time}</td>
             <td className="p-3">{record.daysAttended}</td>

@@ -37,9 +37,15 @@ export async function GET(request: Request) {
       Username: r.person.username ?? '',
       Category: r.person.category,
       Department: r.person.department,
-      'Subscription Plan': r.person.subscriptionPlan ? planLabels[r.person.subscriptionPlan] : '',
-      'Subscription Start': r.person.subscriptionStartDate?.toISOString().slice(0, 10) ?? '',
-      'Subscription Expiry': r.person.subscriptionExpiryDate?.toISOString().slice(0, 10) ?? '',
+      'Subscription Plan': r.person.category === 'STUDENT'
+        ? 'Student Monthly Access'
+        : r.person.subscriptionPlan ? planLabels[r.person.subscriptionPlan] : '',
+      'Subscription Start': r.person.category === 'STUDENT'
+        ? r.person.studentAccessStartsAt?.toLocaleDateString('en-CA', { timeZone: 'Africa/Lagos' }) ?? ''
+        : r.person.subscriptionStartDate?.toISOString().slice(0, 10) ?? '',
+      'Subscription Expiry': r.person.category === 'STUDENT'
+        ? r.person.studentAccessExpiresAt?.toLocaleDateString('en-CA', { timeZone: 'Africa/Lagos' }) ?? ''
+        : r.person.subscriptionExpiryDate?.toISOString().slice(0, 10) ?? '',
       'Days Attended': daysByPerson.get(r.personId) ?? 0,
       Date: r.checkedAt.toLocaleDateString('en-CA', { timeZone: 'Africa/Lagos' }),
       Time: r.checkedAt.toLocaleTimeString('en-NG', { timeZone: 'Africa/Lagos', hour: '2-digit', minute: '2-digit' }),

@@ -2,20 +2,20 @@ import { createHash, randomUUID } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getAppBaseUrl } from '@/lib/app-url';
-import { isSubscriptionActive } from '@/lib/attendance-days';
 import { jsonError } from '@/lib/http';
 import { prisma } from '@/lib/prisma';
 import { initializePaystackTransaction } from '@/lib/paystack';
 import {
   DEFAULT_PLAN_PRICES_KOBO,
-  discountAmount,
+  DEFAULT_STUDENT_MONTHLY_PRICE_KOBO,
+  discountAmount
 } from '@/lib/subscriptions';
 
 const schema = z.object({
   username: z.string().trim().toLowerCase().min(3).max(24).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
   sessionToken: z.string().min(20).max(200).optional(),
   email: z.email().optional(),
-  plan: z.enum(['DAILY', 'WEEKLY', 'MONTHLY']),
+  plan: z.enum(['DAILY', 'WEEKLY', 'MONTHLY']).optional(),
   discountCode: z.string().trim().max(40).optional()
 });
 
@@ -60,26 +60,23 @@ export async function POST(request: Request) {
     }
 
     const person = await prisma.person.findUnique({ where: { username: input.username } });
-    if (!person || !person.active || person.category !== 'SUBSCRIBER') {
-      return jsonError('An active, registered subscriber account is required to purchase a pass.', 403);
+    if (!person || !person.active || (person.category !== 'SUBSCRIBER' && person.category !== 'STUDENT')) {
+      return jsonError('An active, registered student or subscriber account is required to pay.', 403);
     }
-    if (isSubscriptionActive(
-      person.subscriptionStartDate,
-      person.subscriptionExpiryDate,
-      now,
-      person.subscriptionStartsAt,
-      person.subscriptionExpiresAt
-    )) {
-      return jsonError('Your subscriber pass is already active. Return to check-in.', 409);
-    }
-
     const email = input.email ?? person.email;
     if (!email) return jsonError('Enter an email address to continue to Paystack.', 400);
 
-    const savedPrice = await prisma.subscriptionPlanPrice.findUnique({
-      where: { plan: input.plan }
-    });
-    const baseAmountKobo = savedPrice?.amountKobo ?? DEFAULT_PLAN_PRICES_KOBO[input.plan];
+    const category = person.category;
+    let baseAmountKobo: number;
+    if (category === 'SUBSCRIBER') {
+      if (!input.plan) return jsonError('Choose a subscriber pass to continue.', 400);
+      const savedPrice = await prisma.subscriptionPlanPrice.findUnique({ where: { plan: input.plan } });
+      baseAmountKobo = savedPrice?.amountKobo ?? DEFAULT_PLAN_PRICES_KOBO[input.plan];
+    } else {
+      if (input.plan) return jsonError('Students use the monthly student fee.', 400);
+      const savedPrice = await prisma.studentMonthlyPrice.findUnique({ where: { id: 'student-monthly' } });
+      baseAmountKobo = savedPrice?.amountKobo ?? DEFAULT_STUDENT_MONTHLY_PRICE_KOBO;
+    }
     let discountId: string | null = null;
     let discountKobo = 0;
     if (input.discountCode) {
@@ -89,6 +86,7 @@ export async function POST(request: Request) {
       if (
         !discount ||
         !discount.active ||
+        discount.category !== category ||
         (discount.plan && discount.plan !== input.plan) ||
         (discount.startsAt && discount.startsAt > now) ||
         (discount.expiresAt && discount.expiresAt <= now)
@@ -108,7 +106,15 @@ export async function POST(request: Request) {
         reference,
         personId: person.id,
         sessionId: session.id,
-        plan: input.plan,
+        category,
+        plan: input.plan ?? null,
+        durationDays: category === 'STUDENT'
+          ? 30
+          : input.plan === 'DAILY'
+            ? 1
+            : input.plan === 'WEEKLY'
+              ? 7
+              : 30,
         currency: 'NGN',
         baseAmountKobo,
         discountKobo,
@@ -127,7 +133,8 @@ export async function POST(request: Request) {
         metadata: {
           paymentId: payment.id,
           personId: person.id,
-          plan: payment.plan
+          category: payment.category,
+          plan: payment.plan ?? 'STUDENT_MONTHLY'
         }
       });
       return NextResponse.json({

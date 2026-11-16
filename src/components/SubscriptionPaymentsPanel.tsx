@@ -8,6 +8,7 @@ type Discount = {
   code: string;
   label: string;
   amountNgn: number;
+  category: 'STUDENT' | 'SUBSCRIBER';
   plan: Plan | null;
   redemptionCount: number;
   startsOn: string | null;
@@ -19,7 +20,8 @@ type Payment = {
   reference: string;
   name: string;
   username: string | null;
-  plan: Plan;
+  category: 'STUDENT' | 'SUBSCRIBER';
+  plan: Plan | null;
   status: 'PENDING' | 'SUCCESS' | 'FAILED';
   amountNgn: number;
   discountNgn: number;
@@ -48,12 +50,14 @@ export default function SubscriptionPaymentsPanel() {
     WEEKLY: 10000,
     MONTHLY: 35000
   });
+  const [studentMonthlyPrice, setStudentMonthlyPrice] = useState(35000);
   const [discounts, setDiscounts] = useState<Discount[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [form, setForm] = useState({
     code: '',
     label: '',
     amountNgn: '',
+    category: 'SUBSCRIBER',
     plan: 'ALL',
     startsOn: '',
     expiresOn: ''
@@ -66,6 +70,7 @@ export default function SubscriptionPaymentsPanel() {
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Could not load subscriber payments.');
     setPrices(Object.fromEntries(data.prices.map((price: PlanPrice) => [price.plan, price.amountNgn])) as Record<Plan, number>);
+    setStudentMonthlyPrice(data.studentMonthlyAmountNgn);
     setDiscounts(data.discounts);
     setPayments(data.payments);
   }
@@ -91,7 +96,8 @@ export default function SubscriptionPaymentsPanel() {
     setNotice('');
     try {
       await request('/api/admin/subscriptions', 'PUT', {
-        prices: plans.map(plan => ({ plan, amountNgn: Number(prices[plan]) }))
+        prices: plans.map(plan => ({ plan, amountNgn: Number(prices[plan]) })),
+        studentMonthlyAmountNgn: Number(studentMonthlyPrice)
       });
       setNotice('Subscriber pass prices updated.');
       await load();
@@ -111,11 +117,12 @@ export default function SubscriptionPaymentsPanel() {
         code: form.code,
         label: form.label,
         amountNgn: Number(form.amountNgn),
-        plan: form.plan === 'ALL' ? null : form.plan,
+        category: form.category,
+        plan: form.category === 'SUBSCRIBER' && form.plan !== 'ALL' ? form.plan : null,
         ...(form.startsOn ? { startsOn: form.startsOn } : {}),
         ...(form.expiresOn ? { expiresOn: form.expiresOn } : {})
       });
-      setForm({ code: '', label: '', amountNgn: '', plan: 'ALL', startsOn: '', expiresOn: '' });
+      setForm({ code: '', label: '', amountNgn: '', category: 'SUBSCRIBER', plan: 'ALL', startsOn: '', expiresOn: '' });
       setNotice('Discount code created.');
       await load();
     } catch (error) {
@@ -158,24 +165,28 @@ export default function SubscriptionPaymentsPanel() {
     {notice && <p role="status" className="rounded-xl border border-brand-gold bg-brand-gold-soft p-3 text-sm text-brand-navy-dark">{notice}</p>}
     <div className="grid gap-5 lg:grid-cols-2">
       <form onSubmit={savePrices} className="rounded-2xl border bg-white p-5">
-        <h2 className="font-bold">Subscriber pass prices</h2>
+        <h2 className="font-bold">Student and subscriber prices</h2>
         <p className="mt-1 text-sm text-slate-500">Prices are charged in Nigerian naira. Changes apply to new checkouts.</p>
         <div className="mt-4 space-y-3">
           {plans.map(plan => <label key={plan} className="block text-sm font-medium">{planLabels[plan]}
             <span className="mt-1 flex items-center rounded-xl border px-3"><span className="text-slate-500">₦</span><input required type="number" min="1" step="1" value={prices[plan]} onChange={event => setPrices({ ...prices, [plan]: Number(event.target.value) })} className="w-full border-0 px-2 py-2 outline-none"/></span>
           </label>)}
+          <label className="block text-sm font-medium">Student monthly fee (30 days)
+            <span className="mt-1 flex items-center rounded-xl border px-3"><span className="text-slate-500">₦</span><input required type="number" min="1" step="1" value={studentMonthlyPrice} onChange={event => setStudentMonthlyPrice(Number(event.target.value))} className="w-full border-0 px-2 py-2 outline-none"/></span>
+          </label>
         </div>
         <button disabled={busy} className={`${button} mt-4 bg-brand-navy text-white disabled:opacity-50`}>Save prices</button>
       </form>
 
       <form onSubmit={addDiscount} className="rounded-2xl border bg-white p-5">
         <h2 className="font-bold">Add fixed-amount discount</h2>
-        <p className="mt-1 text-sm text-slate-500">Subscribers enter this code before paying. Leave dates blank for no date restriction.</p>
+        <p className="mt-1 text-sm text-slate-500">Choose whether the code applies to students or subscribers. Leave dates blank for no date restriction.</p>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <label className="text-sm font-medium">Code<input required minLength={3} maxLength={40} value={form.code} onChange={event => setForm({ ...form, code: event.target.value.toUpperCase() })} className="mt-1 w-full rounded-xl border px-3 py-2"/></label>
           <label className="text-sm font-medium">Name<input required minLength={2} maxLength={100} value={form.label} onChange={event => setForm({ ...form, label: event.target.value })} className="mt-1 w-full rounded-xl border px-3 py-2"/></label>
           <label className="text-sm font-medium">Discount (NGN)<input required type="number" min="1" step="1" value={form.amountNgn} onChange={event => setForm({ ...form, amountNgn: event.target.value })} className="mt-1 w-full rounded-xl border px-3 py-2"/></label>
-          <label className="text-sm font-medium">Applies to<select value={form.plan} onChange={event => setForm({ ...form, plan: event.target.value })} className="mt-1 w-full rounded-xl border px-3 py-2"><option value="ALL">All passes</option>{plans.map(plan => <option key={plan} value={plan}>{planLabels[plan]}</option>)}</select></label>
+          <label className="text-sm font-medium">Applies to<select value={form.category} onChange={event => setForm({ ...form, category: event.target.value as 'STUDENT' | 'SUBSCRIBER', plan: 'ALL' })} className="mt-1 w-full rounded-xl border px-3 py-2"><option value="SUBSCRIBER">Subscribers</option><option value="STUDENT">Students</option></select></label>
+          {form.category === 'SUBSCRIBER' && <label className="text-sm font-medium">Pass<select value={form.plan} onChange={event => setForm({ ...form, plan: event.target.value })} className="mt-1 w-full rounded-xl border px-3 py-2"><option value="ALL">All passes</option>{plans.map(plan => <option key={plan} value={plan}>{planLabels[plan]}</option>)}</select></label>}
           <label className="text-sm font-medium">Starts on<input type="date" value={form.startsOn} onChange={event => setForm({ ...form, startsOn: event.target.value })} className="mt-1 w-full rounded-xl border px-3 py-2"/></label>
           <label className="text-sm font-medium">Expires on<input type="date" min={form.startsOn || undefined} value={form.expiresOn} onChange={event => setForm({ ...form, expiresOn: event.target.value })} className="mt-1 w-full rounded-xl border px-3 py-2"/></label>
         </div>
@@ -186,11 +197,11 @@ export default function SubscriptionPaymentsPanel() {
     <section className="rounded-2xl border bg-white p-5">
       <h2 className="font-bold">Discount codes ({discounts.length})</h2>
       <div className="mt-3 overflow-x-auto"><table className="w-full text-left text-sm">
-        <thead className="bg-brand-gold-soft text-brand-navy-dark"><tr>{['Code', 'Discount', 'Pass', 'Validity', 'Uses', 'Status', 'Action'].map(heading => <th key={heading} className="p-3">{heading}</th>)}</tr></thead>
+        <thead className="bg-brand-gold-soft text-brand-navy-dark"><tr>{['Code', 'Discount', 'Category / Pass', 'Validity', 'Uses', 'Status', 'Action'].map(heading => <th key={heading} className="p-3">{heading}</th>)}</tr></thead>
         <tbody>{discounts.map(discount => <tr key={discount.id} className="border-t">
           <td className="p-3"><b>{discount.code}</b><div className="text-xs text-slate-500">{discount.label}</div></td>
           <td className="p-3">{money.format(discount.amountNgn)}</td>
-          <td className="p-3">{discount.plan ? planLabels[discount.plan] : 'All passes'}</td>
+          <td className="p-3">{discount.category === 'STUDENT' ? 'Students' : discount.plan ? planLabels[discount.plan] : 'Subscribers — all passes'}</td>
           <td className="p-3">{discount.startsOn || 'Any'} – {discount.expiresOn || 'No expiry'}</td>
           <td className="p-3">{discount.redemptionCount}</td>
           <td className="p-3">{discount.active ? 'Active' : 'Disabled'}</td>
@@ -200,12 +211,12 @@ export default function SubscriptionPaymentsPanel() {
     </section>
 
     <section className="rounded-2xl border bg-white p-5">
-      <h2 className="font-bold">Recent subscriber payments (latest {payments.length})</h2>
+      <h2 className="font-bold">Recent student and subscriber payments (latest {payments.length})</h2>
       <div className="mt-3 overflow-x-auto"><table className="w-full text-left text-sm">
-        <thead className="bg-brand-gold-soft text-brand-navy-dark"><tr>{['Subscriber', 'Pass', 'Paid', 'Discount', 'Status', 'Date', 'Check-in'].map(heading => <th key={heading} className="p-3">{heading}</th>)}</tr></thead>
+        <thead className="bg-brand-gold-soft text-brand-navy-dark"><tr>{['Person', 'Payment type', 'Paid', 'Discount', 'Status', 'Date', 'Check-in'].map(heading => <th key={heading} className="p-3">{heading}</th>)}</tr></thead>
         <tbody>{payments.map(payment => <tr key={payment.id} className="border-t">
           <td className="p-3"><b>{payment.name}</b><div className="text-xs text-slate-500">@{payment.username || '—'}</div></td>
-          <td className="p-3">{planLabels[payment.plan]}</td>
+          <td className="p-3">{payment.category === 'STUDENT' ? 'Student monthly' : payment.plan ? planLabels[payment.plan] : '—'}</td>
           <td className="p-3">{money.format(payment.amountNgn)}</td>
           <td className="p-3">{payment.discountNgn > 0 ? `${money.format(payment.discountNgn)}${payment.discountCode ? ` (${payment.discountCode})` : ''}` : '—'}</td>
           <td className="p-3">{payment.status}</td>
