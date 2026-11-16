@@ -3,8 +3,16 @@ import { useEffect, useState } from 'react';
 import BrandLogo from '@/components/BrandLogo';
 
 type AttendanceResult = Record<string, string>;
-type VisitorHost = { id: string; fullName: string; category: 'STUDENT' | 'STAFF' };
+type CheckinCategory = 'STUDENT' | 'STAFF' | 'VISITOR' | 'GUEST' | 'SUBSCRIBER';
+type VisitorHost = { id: string; fullName: string; category: CheckinCategory };
 type CheckinMode = 'choose' | 'member' | 'visitor';
+const categoryLabels: Record<CheckinCategory, string> = {
+  STUDENT: 'Student',
+  STAFF: 'Staff',
+  VISITOR: 'Visitor',
+  GUEST: 'Guest',
+  SUBSCRIBER: 'Subscriber'
+};
 
 function VisitorCheckinForm({ sessionToken, onBack }: { sessionToken: string; onBack: () => void }) {
   const [visitorName, setVisitorName] = useState('');
@@ -88,8 +96,8 @@ function VisitorCheckinForm({ sessionToken, onBack }: { sessionToken: string; on
       <input id="visitor-name" required minLength={2} maxLength={120} value={visitorName} onChange={event => setVisitorName(event.target.value)} autoComplete="name" className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-brand-gold"/>
       <label htmlFor="visitor-host" className="block text-sm font-semibold">Who are you visiting?</label>
       <select id="visitor-host" required value={hostSelection} onChange={event => setHostSelection(event.target.value)} className="w-full rounded-xl border border-slate-300 px-4 py-3">
-        <option value="">Select a staff member or student</option>
-        {hosts.map(host => <option key={host.id} value={host.id}>{host.fullName} ({host.category === 'STAFF' ? 'Staff' : 'Student'})</option>)}
+        <option value="">Select a host</option>
+        {hosts.map(host => <option key={host.id} value={host.id}>{host.fullName} ({categoryLabels[host.category]})</option>)}
         <option value="other">Other (not listed)</option>
       </select>
       {hostSelection === 'other' && <label htmlFor="other-host-name" className="block text-sm font-semibold">Name of the person you are visiting<input id="other-host-name" required minLength={2} maxLength={120} value={otherHostName} onChange={event => setOtherHostName(event.target.value)} className="mt-1 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-brand-gold"/></label>}
@@ -107,6 +115,7 @@ export default function AttendanceScanner() {
   const [sessionToken, setSessionToken] = useState('');
   const [mode, setMode] = useState<CheckinMode>('choose');
   const [username, setUsername] = useState('');
+  const [checkinCategory, setCheckinCategory] = useState<CheckinCategory>('STUDENT');
   const [message, setMessage] = useState('');
   const [result, setResult] = useState<AttendanceResult | null>(null);
   const [busy, setBusy] = useState(false);
@@ -124,7 +133,8 @@ export default function AttendanceScanner() {
     try {
       const payload = {
         ...(sessionToken ? { sessionToken } : {}),
-        username: username.trim().toLowerCase()
+        username: username.trim().toLowerCase(),
+        category: checkinCategory
       };
       let response: Response;
       try {
@@ -169,12 +179,16 @@ export default function AttendanceScanner() {
   }
 
   return <main className="flex min-h-screen items-center justify-center bg-brand-gold-soft p-4"><section className="w-full max-w-md rounded-3xl border-2 border-brand-gold bg-white p-7 shadow-xl">
-    <div className="text-center"><BrandLogo priority className="mx-auto mb-2 h-28 w-[154px] object-contain"/><p className="text-[11px] font-bold tracking-[.1em] text-brand-navy">SPARKLAB CREATIVITY AND INNOVATION HUB</p><h1 className="mt-2 text-2xl font-bold">Mark your attendance</h1><p className="mt-2 text-sm text-slate-500">{mode === 'choose' ? 'Choose the option that matches your visit.' : mode === 'visitor' ? 'Enter your name and who you are visiting.' : 'Enter your registered username to check in.'}</p></div>
-    {mode === 'choose' && <div className="mt-7 space-y-3"><button onClick={() => chooseMode('member')} className="w-full rounded-xl bg-brand-navy px-4 py-3 font-semibold text-white">Student / Staff Check-in</button><button onClick={() => chooseMode('visitor')} className="w-full rounded-xl border-2 border-brand-gold bg-brand-gold-soft px-4 py-3 font-semibold text-brand-navy">Visitor Check-in</button></div>}
+    <div className="text-center"><BrandLogo priority className="mx-auto mb-2 h-28 w-[154px] object-contain"/><p className="text-[11px] font-bold tracking-[.1em] text-brand-navy">SPARKLAB CREATIVITY AND INNOVATION HUB</p><h1 className="mt-2 text-2xl font-bold">Mark your attendance</h1><p className="mt-2 text-sm text-slate-500">{mode === 'choose' ? 'Choose the option that matches your visit.' : mode === 'visitor' ? 'Enter your name and who you are visiting.' : 'Choose your category and enter your registered username.'}</p></div>
+    {mode === 'choose' && <div className="mt-7 space-y-3"><button onClick={() => chooseMode('member')} className="w-full rounded-xl bg-brand-navy px-4 py-3 font-semibold text-white">Registered user check-in (all five categories)</button><button onClick={() => chooseMode('visitor')} className="w-full rounded-xl border-2 border-brand-gold bg-brand-gold-soft px-4 py-3 font-semibold text-brand-navy">Visitor check-in without an account</button></div>}
     {mode === 'member' && <form onSubmit={submitAttendance} className="mt-7 space-y-3">
+      <label htmlFor="attendance-category" className="block text-sm font-semibold">Your category</label>
+      <select id="attendance-category" required value={checkinCategory} onChange={event => setCheckinCategory(event.target.value as CheckinCategory)} className="w-full rounded-xl border border-slate-300 px-4 py-3">
+        {Object.entries(categoryLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+      </select>
       <label htmlFor="attendance-username" className="block text-sm font-semibold">Your username</label>
       <input id="attendance-username" required minLength={3} maxLength={24} value={username} onChange={event => setUsername(event.target.value.toLowerCase().replace(/\s+/g, '-'))} placeholder="e.g. amina-yusuf" autoCapitalize="none" autoCorrect="off" className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-brand-gold"/>
-      <p className="text-xs text-slate-500">Attendance is available while an administrator has an active session. Each person can check in once per day.</p>
+      <p className="text-xs text-slate-500">Attendance is available while an administrator has an active session. Each person can check in once per day. Subscribers must have an active pass.</p>
       <button disabled={busy} className="w-full rounded-xl bg-brand-navy px-4 py-3 font-semibold text-white disabled:opacity-50">{busy ? 'VERIFYING...' : 'VERIFY & RECORD ATTENDANCE'}</button>
       <button type="button" onClick={() => chooseMode('choose')} className="w-full rounded-xl border border-slate-200 px-4 py-3 font-semibold">Back</button>
     </form>}

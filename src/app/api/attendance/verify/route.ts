@@ -3,12 +3,13 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { jsonError } from '@/lib/http';
 import { prisma } from '@/lib/prisma';
-import { getAttendanceDayKey, getAttendanceDayRange } from '@/lib/attendance-days';
+import { getAttendanceDayKey, getAttendanceDayRange, isSubscriptionActive } from '@/lib/attendance-days';
 
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');
 const schema = z.object({
   sessionToken: z.string().min(20).max(200).optional(),
-  username: z.string().trim().toLowerCase().min(3).max(24).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+  username: z.string().trim().toLowerCase().min(3).max(24).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+  category: z.enum(['STUDENT', 'STAFF', 'VISITOR', 'GUEST', 'SUBSCRIBER']).optional()
 });
 
 function getDatabaseErrorCode(error: unknown) {
@@ -43,6 +44,12 @@ export async function POST(request: Request) {
     if (!person || !person.active) {
       return jsonError('VERIFICATION FAILED. That username is not registered in the SPARKLAB system.', 404);
     }
+    if (input.category && person.category !== input.category) {
+      return jsonError('The selected category does not match this username.', 400);
+    }
+    if (person.category === 'SUBSCRIBER' && !isSubscriptionActive(person.subscriptionStartDate, person.subscriptionExpiryDate, now)) {
+      return jsonError('Your subscription is not active today. Please ask SPARKLAB staff for assistance.', 403);
+    }
 
     try {
       const attendanceDay = getAttendanceDayKey(now);
@@ -75,6 +82,11 @@ export async function POST(request: Request) {
           username: person.username ?? input.username,
           category: person.category,
           department: person.department,
+          ...(person.category === 'SUBSCRIBER' ? {
+            subscriptionPlan: person.subscriptionPlan,
+            subscriptionStartDate: person.subscriptionStartDate?.toISOString().slice(0, 10) ?? '',
+            subscriptionExpiryDate: person.subscriptionExpiryDate?.toISOString().slice(0, 10) ?? ''
+          } : {}),
           date: record.checkedAt.toLocaleDateString('en-NG', { timeZone: 'Africa/Lagos', day: '2-digit', month: 'long', year: 'numeric' }),
           time: record.checkedAt.toLocaleTimeString('en-NG', { timeZone: 'Africa/Lagos', hour: '2-digit', minute: '2-digit', hour12: true }),
           status: 'Present'

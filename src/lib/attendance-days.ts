@@ -8,6 +8,22 @@ export function getAttendanceDayRange(date: Date) {
   return { start, end: new Date(start.getTime() + 24 * 60 * 60 * 1000) };
 }
 
+export function isSubscriptionActive(startDate: Date | null, expiryDate: Date | null, now: Date) {
+  if (!startDate || !expiryDate) return false;
+  const today = getAttendanceDayKey(now);
+  return startDate.toISOString().slice(0, 10) <= today && expiryDate.toISOString().slice(0, 10) >= today;
+}
+
+export function uniqueAttendanceCheckinsByPersonAndDay<T extends { personId: string; checkedAt: Date }>(checkins: readonly T[]) {
+  const seen = new Set<string>();
+  return checkins.filter(checkin => {
+    const key = `${checkin.personId}:${getAttendanceDayKey(checkin.checkedAt)}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 export function countAttendanceDays(checkins: readonly { checkedAt: Date }[]) {
   return new Set(checkins.map(({ checkedAt }) => getAttendanceDayKey(checkedAt))).size;
 }

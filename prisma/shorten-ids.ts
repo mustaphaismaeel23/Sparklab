@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import { randomUUID } from 'node:crypto';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, UserCategory } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -9,14 +9,27 @@ async function main() {
     orderBy: [{ registeredAt: 'asc' }, { id: 'asc' }],
     select: { id: true, category: true, uniqueId: true }
   });
-  const sequence = { STUDENT: 0, STAFF: 0 };
+  const sequence: Record<UserCategory, number> = {
+    STUDENT: 0,
+    STAFF: 0,
+    VISITOR: 0,
+    GUEST: 0,
+    SUBSCRIBER: 0
+  };
+  const prefixes: Record<UserCategory, string> = {
+    STUDENT: 'S',
+    STAFF: 'T',
+    VISITOR: 'V',
+    GUEST: 'G',
+    SUBSCRIBER: 'B'
+  };
   const updates = people.map(person => {
     sequence[person.category] += 1;
     if (sequence[person.category] > 999) {
       throw new Error(`Cannot assign short IDs: ${person.category.toLowerCase()} limit is 999.`);
     }
 
-    const prefix = person.category === 'STUDENT' ? 'S' : 'T';
+    const prefix = prefixes[person.category];
     return {
       id: person.id,
       currentId: person.uniqueId,
@@ -45,7 +58,7 @@ async function main() {
     }
   }, { timeout: 120_000 });
 
-  console.log(`Updated ${changes.length} IDs (${sequence.STUDENT} students and ${sequence.STAFF} staff registered).`);
+  console.log(`Updated ${changes.length} short IDs across all five categories.`);
 }
 
 main().finally(() => prisma.$disconnect());

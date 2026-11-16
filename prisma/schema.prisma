@@ -10,6 +10,15 @@ datasource db {
 enum UserCategory {
   STUDENT
   STAFF
+  VISITOR
+  GUEST
+  SUBSCRIBER
+}
+
+enum SubscriptionPlan {
+  DAILY
+  WEEKLY
+  MONTHLY
 }
 
 enum AttendanceStatus {
@@ -26,49 +35,52 @@ model Admin {
 }
 
 model Person {
-  id           String       @id @default(cuid())
-  uniqueId     String       @unique
-  username     String?      @unique
-  fullName     String
-  phone        String
-  email        String?
-  category     UserCategory
-  department   String
-  active       Boolean      @default(true)
-  registeredAt DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
-  attendance   Attendance[]
-  hostedVisitorVisits VisitorVisit[] @relation("VisitorHost")
+  id                     String            @id @default(cuid())
+  uniqueId               String            @unique
+  username               String?           @unique
+  fullName               String
+  phone                  String
+  email                  String?
+  category               UserCategory
+  department             String
+  subscriptionPlan       SubscriptionPlan?
+  subscriptionStartDate  DateTime?         @db.Date
+  subscriptionExpiryDate DateTime?         @db.Date
+  active                 Boolean           @default(true)
+  registeredAt           DateTime          @default(now())
+  updatedAt              DateTime          @updatedAt
+  attendance             Attendance[]
+  hostedVisitorVisits    VisitorVisit[]    @relation("VisitorHost")
 
   @@index([fullName])
   @@index([category, active])
 }
 
 model AttendanceSession {
-  id         String       @id @default(cuid())
-  tokenHash  String       @unique
-  title      String
-  active     Boolean      @default(true)
-  startsAt   DateTime     @default(now())
-  endsAt     DateTime?
-  createdAt  DateTime     @default(now())
-  attendance Attendance[]
+  id            String         @id @default(cuid())
+  tokenHash     String         @unique
+  title         String
+  active        Boolean        @default(true)
+  startsAt      DateTime       @default(now())
+  endsAt        DateTime?
+  createdAt     DateTime       @default(now())
+  attendance    Attendance[]
   visitorVisits VisitorVisit[]
 
   @@index([active, endsAt])
 }
 
 model VisitorVisit {
-  id                 String            @id @default(cuid())
-  visitorName        String
-  visitorNameKey     String
-  visitDay           String            @db.VarChar(10)
-  hostName           String
-  hostPersonId       String?
-  sessionId          String
-  checkedAt          DateTime          @default(now())
-  hostPerson         Person?           @relation("VisitorHost", fields: [hostPersonId], references: [id], onDelete: SetNull)
-  session            AttendanceSession @relation(fields: [sessionId], references: [id], onDelete: Restrict)
+  id             String            @id @default(cuid())
+  visitorName    String
+  visitorNameKey String
+  visitDay       String            @db.VarChar(10)
+  hostName       String
+  hostPersonId   String?
+  sessionId      String
+  checkedAt      DateTime          @default(now())
+  hostPerson     Person?           @relation("VisitorHost", fields: [hostPersonId], references: [id], onDelete: SetNull)
+  session        AttendanceSession @relation(fields: [sessionId], references: [id], onDelete: Restrict)
 
   @@unique([visitorNameKey, visitDay])
   @@index([checkedAt])

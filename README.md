@@ -1,6 +1,6 @@
 # SPARKLAB QR Code Attendance Management System
 
-A full-stack Next.js application for SPARKLAB Creativity and Innovation Hub. Admins register students and staff, start no-limit or time-limited sessions, and manage visitor check-ins. The same QR code offers a registered-person or visitor check-in while a session is active.
+A full-stack Next.js application for SPARKLAB Creativity and Innovation Hub. Admins register students, staff, visitors, guests, and subscribers, start no-limit or time-limited sessions, and manage walk-in visitor check-ins. Subscriber records include a Daily, Weekly, or Monthly Pass and its active dates.
 
 ## Technology
 
@@ -75,18 +75,18 @@ The command updates the password for that existing administrator. It does not cr
 
 ## How to use
 
-1. Open **Users** and register students and staff. Enter a unique username for each person (3–24 letters, numbers, or hyphens; spaces become hyphens).
+1. Open **Users** and register a person as a student, staff member, visitor, guest, or subscriber. Enter a unique username for each person (3–24 letters, numbers, or hyphens; spaces become hyphens). Subscribers also need a pass plan and start/expiry dates.
 2. Open **QR Session** and download the reusable QR code once. Print it and post it at the attendance table.
 3. Start a session to enable check-in. **No time limit** is selected by default; the session remains active until you start another one. You can still select a limited duration when needed. The printed QR stays the same.
-4. Participants scan the posted QR and choose **Student / Staff Check-in** or **Visitor Check-in**.
-5. Students and staff enter their registered username and can check in once per Africa/Lagos calendar day. Visitors enter their name and select an active student or staff host, or choose **Other** and enter a host name. A normalized visitor name can be recorded once per day. Visitors do not need an account.
-6. Admins manage visitor records in the separate **Visitors** dashboard, including searching by visitor or host, filtering by date, and deleting an incorrect record. Visitor visits are stored separately and do not affect student/staff attendance-day counts. The Visitors tab refreshes every 10 seconds while open.
-7. Admins can search users and attendance, see each user's distinct attendance-day count in the user list and attendance records, and export the count to Excel or PDF. Admins can also activate/deactivate users, edit details, delete a user with their attendance history, or delete an individual attendance record. Deletions require confirmation. The Attendance tab refreshes when opened and every 10 seconds while visible.
+4. Participants scan the posted QR and choose registered-person check-in or walk-in visitor check-in. Registered people select their category and enter their username. Subscribers can check in only from their start date through their expiry date, inclusive, in the Africa/Lagos timezone.
+5. Walk-in visitors enter their name and select an active person to visit, or choose **Other** and enter a host name. A normalized visitor name can be recorded once per day; no account is needed. Registered visitors use their registered username and are tracked as people.
+6. Admins manage walk-in records in the separate **Visitors** dashboard, including searching by visitor or host, filtering by date, and deleting an incorrect record. These records remain stored separately and are included as **Visitor** rows in attendance exports.
+7. Admins can search/filter all five registered categories and attendance, see each user's distinct attendance-day count and subscriber pass dates, and export attendance and walk-in visits to Excel or PDF. Admins can also activate/deactivate users, edit details, delete a user with their attendance history, or delete an individual attendance record. Deletions require confirmation. The Attendance tab refreshes when opened and every 10 seconds while visible.
 
 ## Important deployment notes
 
 - The reusable QR points to the same host used by the admin page, so participants reach the deployment where the session was started.
-- Use a managed PostgreSQL database. Apply schema changes before deploying; this project currently uses `prisma db push` and has no committed migration history.
+- Use a managed PostgreSQL database. Apply schema changes before deploying; this project currently uses `prisma db push` and has no committed migration history. This update adds enum values and nullable subscription columns and preserves existing records. Run `npm run db:push` before deploying it.
 - Set strong, private `JWT_SECRET` and admin credentials. Do not commit `.env`.
 - `.env.example` contains placeholders only; keep `.env` out of Git.
 - Set the deployment/runtime timezone to UTC if possible; attendance timestamps are stored as server timestamps and displayed in `Africa/Lagos`.
@@ -97,7 +97,7 @@ The command updates the password for that existing administrator. It does not cr
 ## Deploy to Vercel
 
 1. Rotate any database or administrator passwords that were previously placed in `.env.example`. Copy `.env.example` to `.env` locally and use the new credentials.
-2. Before deploying the username update to a database that already has users, run `npm run db:push`, then `npm run db:backfill-usernames`. For schema changes, use Supabase's direct connection or Session Pooler (port `5432`); the Transaction Pooler (port `6543`) is intended for app runtime and may stall schema operations. The backfill script generates usernames from existing names and is safe to rerun. Share the generated usernames with users before they check in.
+2. Before deploying schema changes to an existing database, run `npm run db:push`. If existing people still need usernames, then run `npm run db:backfill-usernames`. For schema changes, use Supabase's direct connection or Session Pooler (port `5432`); the Transaction Pooler (port `6543`) is intended for app runtime and may stall schema operations. The backfill script generates usernames from existing names and is safe to rerun. Share generated usernames with users before they check in.
 3. Create the first admin with `npm run db:seed` if one does not already exist.
 4. Push the project to your GitHub repository, then import that repository into Vercel.
 5. Add these Vercel environment variables for Production:
@@ -114,7 +114,7 @@ Keep `ADMIN_EMAIL` and `ADMIN_PASSWORD` local for initial seeding or password re
 - `/admin/login` — administrator login
 - `/admin` — admin dashboard, users, QR sessions, attendance, and visitors
 - `/attendance` — participant page opened by the reusable printed QR
-- `/api/visitor-hosts` — public active host list used by visitor check-in
+- `/api/visitor-hosts` — public active host list used by walk-in visitor check-in
 - `/api/visitor-visits` — visitor check-in and authenticated visitor listing
 - `/api/visitor-visits/[id]` — authenticated visitor-record deletion
 - `/api/people` — authenticated registration/listing
@@ -127,4 +127,4 @@ Keep `ADMIN_EMAIL` and `ADMIN_PASSWORD` local for initial seeding or password re
 
 ## Notes
 
-Students and staff use their registered usernames; visitors submit their name and host without creating an account. Only administrators can register and manage students and staff. The first administrator is created by the seed script.
+All registered categories use their registered usernames; subscriber access is limited to the recorded pass dates. Walk-in visitors may submit their name and host without creating an account. Only administrators can register and manage people. The first administrator is created by the seed script.
