@@ -129,7 +129,6 @@ export default function AttendanceScanner() {
   const [result, setResult] = useState<AttendanceResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [paymentRequired, setPaymentRequired] = useState(false);
-  const [paymentComplete, setPaymentComplete] = useState(false);
   const [planPrices, setPlanPrices] = useState<Record<SubscriptionPlan, number> | null>(null);
   const [studentMonthlyPrice, setStudentMonthlyPrice] = useState<number | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan>('DAILY');
@@ -143,16 +142,16 @@ export default function AttendanceScanner() {
     setSessionToken(params.get('session') || '');
     const paymentStatus = params.get('payment');
     if (paymentStatus) {
+      const category = params.get('category') === 'STUDENT' ? 'STUDENT' : 'SUBSCRIBER';
       setMode('member');
-      setCheckinCategory('SUBSCRIBER');
-      setPaymentComplete(paymentStatus === 'success' && params.get('checkedIn') === 'true');
+      setCheckinCategory(category);
       setMessage(paymentStatus === 'success'
-        ? params.get('checkedIn') === 'true'
-          ? 'Payment confirmed and attendance recorded.'
-          : 'Payment confirmed and your paid access has been updated. If attendance was not recorded, return to check-in and try again while a session is active.'
+        ? category === 'STUDENT'
+          ? 'Payment confirmed. Your student access is active. Scan the attendance QR code again and submit your username to check in.'
+          : 'Payment confirmed. Your subscriber pass is active. Scan the attendance QR code again and submit your username to check in.'
         : paymentStatus === 'pending'
-          ? 'Payment confirmation is pending. Please wait a moment, then scan the QR again if attendance was not recorded.'
-          : 'Payment was not completed. Select Subscriber and try again.');
+          ? 'Payment confirmation is pending. Please wait briefly, then check your payment status before trying again.'
+          : `${category === 'STUDENT' ? 'Student' : 'Subscriber'} payment was not completed. You can try again.`);
     }
   }, []);
 
@@ -167,7 +166,7 @@ export default function AttendanceScanner() {
 
   async function openSubscriptionPayment() {
     if (username.trim().length < 3) {
-      setPaymentError('Enter your subscriber username before choosing a pass.');
+      setPaymentError('Enter your registered username before choosing a payment option.');
       return;
     }
     setPaymentRequired(true);
@@ -211,7 +210,7 @@ export default function AttendanceScanner() {
         return;
       }
       if (!response.ok) {
-        if (response.status === 403 && (data.code === 'SUBSCRIPTION_REQUIRED' || data.code === 'STUDENT_PAYMENT_REQUIRED')) {
+        if (response.status === 403 && data.code === 'SUBSCRIPTION_REQUIRED') {
           setPaymentRequired(true);
           setMessage(data.error || 'Choose a payment option to continue.');
           try {
@@ -267,7 +266,6 @@ export default function AttendanceScanner() {
     setMode(nextMode);
     setMessage('');
     setResult(null);
-    setPaymentComplete(false);
     if (nextMode !== 'member') {
       setPaymentRequired(false);
       setPaymentError('');
@@ -277,7 +275,7 @@ export default function AttendanceScanner() {
   return <main className="flex min-h-screen items-center justify-center bg-brand-gold-soft p-4"><section className="w-full max-w-md rounded-3xl border-2 border-brand-gold bg-white p-7 shadow-xl">
     <div className="text-center"><BrandLogo priority className="mx-auto mb-2 h-28 w-[154px] object-contain"/><p className="text-[11px] font-bold tracking-[.1em] text-brand-navy">SPARKLAB CREATIVITY AND INNOVATION HUB</p><h1 className="mt-2 text-2xl font-bold">Mark your attendance</h1><p className="mt-2 text-sm text-slate-500">{mode === 'choose' ? 'Choose the option that matches your visit.' : mode === 'visitor' ? 'Enter your name and who you are visiting.' : mode === 'guest' ? 'Enter your name and who invited you or who you are visiting.' : 'Choose your category and enter your registered username.'}</p></div>
     {mode === 'choose' && <div className="mt-7 space-y-3"><button onClick={() => chooseMode('member')} className="w-full rounded-xl bg-brand-navy px-4 py-3 font-semibold text-white">Registered user check-in</button><button onClick={() => chooseMode('visitor')} className="w-full rounded-xl border-2 border-brand-gold bg-brand-gold-soft px-4 py-3 font-semibold text-brand-navy">Visitor check-in without an account</button><button onClick={() => chooseMode('guest')} className="w-full rounded-xl border-2 border-brand-gold bg-white px-4 py-3 font-semibold text-brand-navy">Guest check-in without an account</button></div>}
-    {mode === 'member' && !paymentRequired && !paymentComplete && <form onSubmit={submitAttendance} className="mt-7 space-y-3">
+    {mode === 'member' && !paymentRequired && <form onSubmit={submitAttendance} className="mt-7 space-y-3">
       <label htmlFor="attendance-category" className="block text-sm font-semibold">Your category</label>
       <select id="attendance-category" required value={checkinCategory} onChange={event => setCheckinCategory(event.target.value as CheckinCategory)} className="w-full rounded-xl border border-slate-300 px-4 py-3">
         {Object.entries(categoryLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
@@ -311,9 +309,8 @@ export default function AttendanceScanner() {
       <button disabled={paymentBusy || (checkinCategory === 'STUDENT' ? studentMonthlyPrice === null : !planPrices)} className="w-full rounded-xl bg-brand-navy px-4 py-3 font-semibold text-white disabled:opacity-50">{paymentBusy ? 'OPENING PAYSTACK...' : 'CONTINUE TO PAYSTACK'}</button>
       <button type="button" onClick={() => { setPaymentRequired(false); setMessage(''); }} className="w-full rounded-xl border border-slate-200 px-4 py-3 font-semibold">Back to check-in</button>
     </form>}
-    {mode === 'member' && paymentComplete && <div role="status" className="mt-7 rounded-2xl border border-green-200 bg-green-50 p-4 text-center text-sm text-green-800">{message}</div>}
     {(mode === 'visitor' || mode === 'guest') && <VisitorCheckinForm sessionToken={sessionToken} category={mode === 'guest' ? 'GUEST' : 'VISITOR'} onBack={() => chooseMode('choose')}/>}
-    {mode === 'member' && message && !paymentRequired && !paymentComplete && <div role="status" className={`mt-4 rounded-xl p-3 text-sm ${result ? 'bg-green-50 text-green-800' : 'bg-amber-50 text-amber-900'}`}>{message}</div>}
+    {mode === 'member' && message && !paymentRequired && <div role="status" className={`mt-4 rounded-xl p-3 text-sm ${result ? 'bg-green-50 text-green-800' : 'bg-amber-50 text-amber-900'}`}>{message}</div>}
     {mode === 'member' && result && <div className="mt-4 rounded-2xl border border-green-200 p-4"><h2 className="font-bold text-green-700">ATTENDANCE SUCCESSFUL!</h2>{Object.entries(result).map(([key, value]) => <div key={key} className="flex justify-between gap-3 border-b border-slate-100 py-2 text-sm"><span className="capitalize text-slate-500">{key.replace(/[A-Z]/g, match => ` ${match.toLowerCase()}`)}</span><strong className="text-right">{value}</strong></div>)}</div>}
     <p className="mt-7 text-center text-xs text-slate-400">SPARKLAB • Secure attendance management</p>
   </section></main>;

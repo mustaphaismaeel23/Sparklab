@@ -47,18 +47,6 @@ export async function POST(request: Request) {
     if (input.category && person.category !== input.category) {
       return jsonError('The selected category does not match this username.', 400);
     }
-    if (person.category === 'STUDENT' && !isSubscriptionActive(
-      null,
-      null,
-      now,
-      person.studentAccessStartsAt,
-      person.studentAccessExpiresAt
-    )) {
-      return NextResponse.json({
-        error: 'Your student access is not active. Choose the monthly student payment to continue check-in.',
-        code: 'STUDENT_PAYMENT_REQUIRED'
-      }, { status: 403 });
-    }
     if (person.category === 'SUBSCRIBER' && !isSubscriptionActive(
       person.subscriptionStartDate,
       person.subscriptionExpiryDate,

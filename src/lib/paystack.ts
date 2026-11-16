@@ -1,6 +1,4 @@
-import { createHash } from 'node:crypto';
 import { prisma } from '@/lib/prisma';
-import { getAttendanceDayKey, getAttendanceDayRange, isSubscriptionActive } from '@/lib/attendance-days';
 import { verifyPaystackSignature } from '@/lib/paystack-signature';
 import {
   getSubscriptionBaseDate,
@@ -90,10 +88,10 @@ export async function completeSubscriptionPayment(reference: string) {
   const payment = await prisma.subscriptionPayment.findUnique({ where: { reference } });
   if (!payment) throw new Error('Subscription payment not found.');
   if (payment.status === 'SUCCESS') {
-    return { status: 'success' as const, checkedIn: payment.attendanceRecorded };
+    return { status: 'success' as const, category: payment.category };
   }
   if (payment.status === 'FAILED') {
-    return { status: 'failed' as const, checkedIn: false };
+    return { status: 'failed' as const, category: payment.category };
   }
 
   const verified = await verifyPaystackTransaction(reference);
@@ -104,9 +102,9 @@ export async function completeSubscriptionPayment(reference: string) {
         where: { id: payment.id, status: 'PENDING' },
         data: { status: 'FAILED' }
       });
-      return { status: 'failed' as const, checkedIn: false };
+      return { status: 'failed' as const, category: payment.category };
     }
-    return { status: 'pending' as const, checkedIn: false };
+    return { status: 'pending' as const, category: payment.category };
   }
   if (verified.amount !== payment.amountKobo || verified.currency !== payment.currency) {
     throw new Error('Paystack payment amount or currency did not match.');
@@ -123,18 +121,17 @@ export async function completeSubscriptionPayment(reference: string) {
     if (claimed.count === 0) {
       const current = await transaction.subscriptionPayment.findUniqueOrThrow({
         where: { id: payment.id },
-        select: { status: true, attendanceRecorded: true }
+        select: { status: true }
       });
       return {
         status: current.status === 'SUCCESS' ? 'success' as const : 'failed' as const,
-        checkedIn: current.attendanceRecorded
+        category: payment.category
       };
     }
 
     const person = await transaction.person.findUniqueOrThrow({
       where: { id: payment.personId },
       select: {
-        active: true,
         category: true,
         subscriptionStartDate: true,
         subscriptionExpiryDate: true,
@@ -144,18 +141,9 @@ export async function completeSubscriptionPayment(reference: string) {
         studentAccessExpiresAt: true
       }
     });
-    const now = new Date();
-    let hasCurrentAccess = false;
     let start: Date;
     let expiry: Date;
     if (payment.category === 'SUBSCRIBER' && person.category === 'SUBSCRIBER' && payment.plan) {
-      hasCurrentAccess = isSubscriptionActive(
-        person.subscriptionStartDate,
-        person.subscriptionExpiryDate,
-        now,
-        person.subscriptionStartsAt,
-        person.subscriptionExpiresAt
-      );
       start = getSubscriptionBaseDate(person.subscriptionExpiryDate, person.subscriptionExpiresAt, paidAt);
       expiry = getSubscriptionExpiry(start, payment.plan);
       await transaction.person.update({
@@ -168,13 +156,6 @@ export async function completeSubscriptionPayment(reference: string) {
         }
       });
     } else if (payment.category === 'STUDENT' && person.category === 'STUDENT') {
-      hasCurrentAccess = isSubscriptionActive(
-        null,
-        null,
-        now,
-        person.studentAccessStartsAt,
-        person.studentAccessExpiresAt
-      );
       start = getSubscriptionBaseDate(null, person.studentAccessExpiresAt, paidAt);
       expiry = new Date(start.getTime() + payment.durationDays * 24 * 60 * 60 * 1000);
       await transaction.person.update({
@@ -191,54 +172,9 @@ export async function completeSubscriptionPayment(reference: string) {
       });
     }
 
-    let checkedIn = false;
-    const session = await transaction.attendanceSession.findUnique({
-      where: { id: payment.sessionId }
-    });
-    if (
-      person.active &&
-      (
-        hasCurrentAccess ||
-        (start <= now && now < expiry)
-      ) &&
-      session?.active &&
-      session.startsAt <= now &&
-      (session.endsAt === null || session.endsAt > now)
-    ) {
-      const day = getAttendanceDayKey(now);
-      const dayRange = getAttendanceDayRange(now);
-      const dailySession = await transaction.attendanceSession.upsert({
-        where: { tokenHash: createDailySessionToken(day) },
-        update: {},
-        create: {
-          tokenHash: createDailySessionToken(day),
-          title: `${session.title} (${day})`,
-          active: false,
-          startsAt: now,
-          endsAt: dayRange.end
-        }
-      });
-      await transaction.attendance.upsert({
-        where: {
-          personId_sessionId: { personId: payment.personId, sessionId: dailySession.id }
-        },
-        update: {},
-        create: { personId: payment.personId, sessionId: dailySession.id }
-      });
-      checkedIn = true;
-    }
-
-    await transaction.subscriptionPayment.update({
-      where: { id: payment.id },
-      data: { attendanceRecorded: checkedIn }
-    });
-    return { status: 'success' as const, checkedIn };
+    return { status: 'success' as const, category: payment.category };
   }).catch(error => {
     console.error('Subscription payment finalization failed:', getDatabaseErrorCode(error));
     throw error;
   });
-}
-
-function createDailySessionToken(day: string) {
-  return createHash('sha256').update(`daily:${day}`).digest('hex');
 }

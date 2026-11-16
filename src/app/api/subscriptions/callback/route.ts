@@ -21,9 +21,7 @@ export async function GET(request: Request) {
   try {
     const result = await completeSubscriptionPayment(reference);
     destination.searchParams.set('payment', result.status);
-    if (result.status === 'success') {
-      destination.searchParams.set('checkedIn', String(result.checkedIn));
-    }
+    destination.searchParams.set('category', result.category);
   } catch (error) {
     console.error('Paystack callback verification failed:', getErrorCode(error));
     destination.searchParams.set('payment', 'pending');
