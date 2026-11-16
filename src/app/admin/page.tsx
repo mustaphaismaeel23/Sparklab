@@ -90,7 +90,7 @@ export default function AdminPage() {
   }, []);
 
   useEffect(() => {
-    if (tab !== 'attendance') return;
+    if (tab !== 'attendance' && tab !== 'overview') return;
     let active = true;
     let loading = false;
     const refresh = async () => {
@@ -124,7 +124,7 @@ export default function AdminPage() {
   }, [tab, attendanceRefresh]);
 
   useEffect(() => {
-    if (tab !== 'visitors') return;
+    if (tab !== 'visitors' && tab !== 'overview') return;
     let active = true;
     let loading = false;
     const refresh = async () => {
@@ -363,7 +363,7 @@ export default function AdminPage() {
   return <main className="min-h-screen">
     <header className="border-b-4 border-brand-gold bg-white shadow-sm"><div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-2"><BrandLogo priority className="h-16 w-[88px] object-contain sm:h-[72px] sm:w-[98px]"/><div className="flex items-center gap-3"><span className="hidden text-sm text-slate-500 sm:block">{admin?.name}</span><button onClick={logout} className={`${button} border border-slate-200`}>Sign out</button></div></div></header>
     <div className="mx-auto max-w-7xl px-5 py-7">
-      <div className="mb-6"><p className="text-sm font-semibold tracking-wide text-brand-navy">ADMINISTRATION</p><h1 className="text-3xl font-bold">Dashboard</h1><p className="mt-1 text-sm text-slate-500">Manage registrations and attendance records.</p></div>
+      <div className="mb-6"><p className="text-sm font-semibold tracking-wide text-brand-navy">ADMINISTRATION</p><h1 className="text-3xl font-bold">Dashboard</h1><p className="mt-1 text-sm text-slate-500">Manage registrations and attendance records. Overview and attendance update automatically every 10 seconds.</p></div>
       <nav className="mb-6 flex flex-wrap gap-2">{(['overview', 'people', 'attendance', 'visitors', 'session'] as Tab[]).map(tabName => <button key={tabName} onClick={() => { setTab(tabName); setNotice(''); }} className={`${button} capitalize ${tab === tabName ? 'bg-brand-navy text-white' : 'border border-slate-200 bg-white'}`}>{tabName === 'people' ? 'Users' : tabName === 'session' ? 'QR Session' : tabName}</button>)}</nav>
       {notice && <div className="mb-5 rounded-xl border border-brand-gold bg-brand-gold-soft p-3 text-sm text-brand-navy-dark">{notice}</div>}
       {tab === 'overview' && <>
