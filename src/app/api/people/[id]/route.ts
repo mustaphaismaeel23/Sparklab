@@ -42,7 +42,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       ? {
           subscriptionPlan: data.subscriptionPlan,
           subscriptionStartDate: new Date(`${data.subscriptionStartDate}T00:00:00.000Z`),
-          subscriptionExpiryDate: new Date(`${data.subscriptionExpiryDate}T00:00:00.000Z`)
+          subscriptionExpiryDate: new Date(`${data.subscriptionExpiryDate}T00:00:00.000Z`),
+          subscriptionStartsAt: null,
+          subscriptionExpiresAt: null
         }
       : {};
     const person = await prisma.person.update({
@@ -62,6 +64,10 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
   if (!(await getAdmin())) return jsonError('Unauthorized', 401);
   const { id } = await context.params;
   try {
+    const paymentCount = await prisma.subscriptionPayment.count({ where: { personId: id } });
+    if (paymentCount > 0) {
+      return jsonError('This person has subscriber payment history and cannot be deleted. Deactivate the account instead.', 409);
+    }
     await prisma.$transaction(async transaction => {
       await transaction.attendance.deleteMany({ where: { personId: id } });
       await transaction.person.delete({ where: { id } });

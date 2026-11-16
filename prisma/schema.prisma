@@ -30,6 +30,12 @@ enum AttendanceStatus {
   PRESENT
 }
 
+enum SubscriptionPaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
 model Admin {
   id           String   @id @default(cuid())
   name         String
@@ -40,37 +46,41 @@ model Admin {
 }
 
 model Person {
-  id                     String            @id @default(cuid())
-  uniqueId               String            @unique
-  username               String?           @unique
+  id                     String                @id @default(cuid())
+  uniqueId               String                @unique
+  username               String?               @unique
   fullName               String
   phone                  String
   email                  String?
   category               UserCategory
   department             String
   subscriptionPlan       SubscriptionPlan?
-  subscriptionStartDate  DateTime?         @db.Date
-  subscriptionExpiryDate DateTime?         @db.Date
-  active                 Boolean           @default(true)
-  registeredAt           DateTime          @default(now())
-  updatedAt              DateTime          @updatedAt
+  subscriptionStartDate  DateTime?             @db.Date
+  subscriptionExpiryDate DateTime?             @db.Date
+  subscriptionStartsAt   DateTime?
+  subscriptionExpiresAt  DateTime?
+  active                 Boolean               @default(true)
+  registeredAt           DateTime              @default(now())
+  updatedAt              DateTime              @updatedAt
   attendance             Attendance[]
-  hostedVisitorVisits    VisitorVisit[]    @relation("VisitorHost")
+  hostedVisitorVisits    VisitorVisit[]        @relation("VisitorHost")
+  subscriptionPayments   SubscriptionPayment[]
 
   @@index([fullName])
   @@index([category, active])
 }
 
 model AttendanceSession {
-  id            String         @id @default(cuid())
-  tokenHash     String         @unique
-  title         String
-  active        Boolean        @default(true)
-  startsAt      DateTime       @default(now())
-  endsAt        DateTime?
-  createdAt     DateTime       @default(now())
-  attendance    Attendance[]
-  visitorVisits VisitorVisit[]
+  id                   String                @id @default(cuid())
+  tokenHash            String                @unique
+  title                String
+  active               Boolean               @default(true)
+  startsAt             DateTime              @default(now())
+  endsAt               DateTime?
+  createdAt            DateTime              @default(now())
+  attendance           Attendance[]
+  visitorVisits        VisitorVisit[]
+  subscriptionPayments SubscriptionPayment[]
 
   @@index([active, endsAt])
 }
@@ -105,4 +115,51 @@ model Attendance {
 
   @@unique([personId, sessionId])
   @@index([checkedAt])
+}
+
+model SubscriptionPlanPrice {
+  id         String           @id @default(cuid())
+  plan       SubscriptionPlan @unique
+  amountKobo Int
+  updatedAt  DateTime         @updatedAt
+}
+
+model SubscriberDiscount {
+  id              String                @id @default(cuid())
+  code            String                @unique
+  label           String
+  amountKobo      Int
+  plan            SubscriptionPlan?
+  redemptionCount Int                   @default(0)
+  startsAt        DateTime?
+  expiresAt       DateTime?
+  active          Boolean               @default(true)
+  createdAt       DateTime              @default(now())
+  payments        SubscriptionPayment[]
+
+  @@index([active, startsAt, expiresAt])
+}
+
+model SubscriptionPayment {
+  id                 String                    @id @default(cuid())
+  reference          String                    @unique
+  personId           String
+  sessionId          String
+  plan               SubscriptionPlan
+  status             SubscriptionPaymentStatus @default(PENDING)
+  currency           String                    @default("NGN")
+  baseAmountKobo     Int
+  discountKobo       Int                       @default(0)
+  amountKobo         Int
+  discountId         String?
+  discountCode       String?
+  attendanceRecorded Boolean                   @default(false)
+  createdAt          DateTime                  @default(now())
+  paidAt             DateTime?
+  person             Person                    @relation(fields: [personId], references: [id], onDelete: Restrict)
+  session            AttendanceSession         @relation(fields: [sessionId], references: [id], onDelete: Restrict)
+  discount           SubscriberDiscount?       @relation(fields: [discountId], references: [id], onDelete: SetNull)
+
+  @@index([personId, createdAt])
+  @@index([status, createdAt])
 }

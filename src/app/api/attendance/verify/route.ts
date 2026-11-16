@@ -47,8 +47,17 @@ export async function POST(request: Request) {
     if (input.category && person.category !== input.category) {
       return jsonError('The selected category does not match this username.', 400);
     }
-    if (person.category === 'SUBSCRIBER' && !isSubscriptionActive(person.subscriptionStartDate, person.subscriptionExpiryDate, now)) {
-      return jsonError('Your subscription is not active today. Please ask SPARKLAB staff for assistance.', 403);
+    if (person.category === 'SUBSCRIBER' && !isSubscriptionActive(
+      person.subscriptionStartDate,
+      person.subscriptionExpiryDate,
+      now,
+      person.subscriptionStartsAt,
+      person.subscriptionExpiresAt
+    )) {
+      return NextResponse.json({
+        error: 'Your subscriber pass is not active. Choose a pass to pay and continue check-in.',
+        code: 'SUBSCRIPTION_REQUIRED'
+      }, { status: 403 });
     }
 
     try {

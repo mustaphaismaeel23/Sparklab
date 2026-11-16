@@ -34,12 +34,14 @@ A full-stack Next.js application for SPARKLAB Creativity and Innovation Hub. Adm
    ADMIN_NAME="SPARKLAB Administrator"
    ADMIN_EMAIL="admin@yourdomain.com"
    ADMIN_PASSWORD="use-a-strong-unique-password"
+   APP_URL="http://localhost:3000"
+   PAYSTACK_SECRET_KEY="your-rotated-Paystack-secret-key"
    ```
 
-   Generate a strong JWT secret with `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"`.
+   Generate a strong JWT secret with `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"`. Keep the Paystack secret server-side only; never use a `NEXT_PUBLIC_` variable or commit it. For production, set `APP_URL` to your canonical HTTPS domain and configure the Paystack webhook at `<APP_URL>/api/subscriptions/webhook`. Use a rotated test key while testing, then configure the approved live key and webhook before accepting real payments.
 
-4. Create an empty PostgreSQL database named `sparklab_attendance`.
-5. Generate Prisma client and create tables:
+5. Create an empty PostgreSQL database named `sparklab_attendance`.
+6. Generate Prisma client and create tables:
 
    ```bash
    npx prisma generate
@@ -48,19 +50,19 @@ A full-stack Next.js application for SPARKLAB Creativity and Innovation Hub. Adm
 
    If you are only testing locally and do not want a migration yet, use `npx prisma db push` instead.
 
-6. Create the first administrator:
+7. Create the first administrator:
 
    ```bash
    npm run db:seed
    ```
 
-7. Start the app:
+8. Start the app:
 
    ```bash
    npm run dev
    ```
 
-8. Open `http://localhost:3000/admin/login`. Sign in with the admin email/password from `.env`.
+9. Open `http://localhost:3000/admin/login`. Sign in with the admin email/password from `.env`.
 
 ## Reset the administrator password
 
@@ -78,16 +80,18 @@ The command updates the password for that existing administrator. It does not cr
 1. Open **Users** and register students, staff, registered visitors, or subscribers. Guests use the separate walk-in check-in and do not need an account. Enter a unique username for registered people (3–24 letters, numbers, or hyphens; spaces become hyphens). Subscribers also need a pass plan and start/expiry dates.
 2. Open **QR Session** and download the reusable QR code once. Print it and post it at the attendance table.
 3. Start a session to enable check-in. **No time limit** is selected by default; the session remains active until you start another one. You can still select a limited duration when needed. The printed QR stays the same.
-4. Participants scan the posted QR and choose registered-person, Visitor, or Guest check-in. Registered people select their category and enter their username. Subscribers can check in only from their start date through their expiry date, inclusive, in the Africa/Lagos timezone. Existing registered Guest accounts remain supported.
+4. Participants scan the posted QR and choose registered-person, Visitor, or Guest check-in. Registered people select their category and enter their username. When a registered subscriber's pass is inactive, they can choose a Daily, Weekly, or Monthly Pass, enter their email and an optional discount code, and pay through Paystack. A verified payment activates the pass and records check-in if the scanned attendance session is still active. Paid passes last 24 hours, 7 days, or 30 days from payment verification. Existing registered Guest accounts remain supported.
 5. Visitors and Guests enter their name and select a host/inviter, or choose **Other** and enter a name. Each category is recorded separately and a normalized name can be recorded once per category per day. No account is needed for walk-in Guests or Visitors.
 6. Admins manage walk-in records in the **Visitors & Guests** dashboard, including filtering by category/date, searching by name or host, and deleting an incorrect record. These records remain stored separately and are included under their respective categories in attendance exports.
 7. Admins can search/filter all five categories across registered people and walk-in records, see each registered person's distinct attendance-day count and subscriber pass dates, and export attendance plus Visitor and Guest walk-ins to Excel or PDF. The Attendance table shows one latest row per person; filtering by date shows their check-in for that day. Admins can also activate/deactivate users, edit details, delete a user with their attendance history, or delete an individual attendance record. Deletions require confirmation. The Attendance tab refreshes when opened and every 10 seconds while visible.
+8. In **Subscriber payments**, admins set the three NGN pass prices, create fixed-amount discount codes (optionally limited by pass and dates), enable/disable codes, and review recent payments. Initial prices are Daily ₦2,500, Weekly ₦10,000, and Monthly ₦35,000; admins can change them before accepting payments. Subscriber accounts with payment history cannot be deleted; deactivate them instead.
 
 ## Important deployment notes
 
 - The reusable QR points to the same host used by the admin page, so participants reach the deployment where the session was started.
 - Use a managed PostgreSQL database. Apply schema changes before deploying; this project currently uses `prisma db push` and has no committed migration history. Schema updates add fields/indexes with defaults that preserve existing visitor records as Visitors. Run `npm run db:push` before deploying schema changes.
 - Set strong, private `JWT_SECRET` and admin credentials. Do not commit `.env`.
+- Set `APP_URL` to the canonical HTTPS deployment URL and `PAYSTACK_SECRET_KEY` to a rotated test or live secret in the hosting provider's server-only environment settings. Configure the matching Paystack webhook at `/api/subscriptions/webhook`; webhook signatures and transaction status/amount are verified before activating a pass.
 - `.env.example` contains placeholders only; keep `.env` out of Git.
 - Set the deployment/runtime timezone to UTC if possible; attendance timestamps are stored as server timestamps and displayed in `Africa/Lagos`.
 - Attendance relies on the registered username and an active QR session; it is not strong identity proof.
@@ -103,6 +107,8 @@ The command updates the password for that existing administrator. It does not cr
 5. Add these Vercel environment variables for Production:
    - `DATABASE_URL`: Supabase Transaction Pooler connection string (port `6543`) for Vercel serverless deployments.
    - `JWT_SECRET`: a private random secret of at least 32 characters.
+   - `APP_URL`: the canonical HTTPS Vercel domain used for Paystack callbacks.
+   - `PAYSTACK_SECRET_KEY`: a rotated Paystack secret key (server-only; use test credentials until live payments are approved).
 6. Deploy. The build script generates Prisma Client and builds Next.js.
 
 The app automatically enables Prisma's PgBouncer-compatible mode for Supabase Transaction Pooler URLs.
@@ -121,6 +127,11 @@ Keep `ADMIN_EMAIL` and `ADMIN_PASSWORD` local for initial seeding or password re
 - `/api/people/[id]` — authenticated user editing/deletion
 - `/api/sessions` — authenticated session and QR generation
 - `/api/attendance/verify` — public attendance verification
+- `/api/subscriptions/plans` — public subscriber pass prices
+- `/api/subscriptions/checkout` — create a Paystack subscriber checkout
+- `/api/subscriptions/callback` — verify payment and continue check-in
+- `/api/subscriptions/webhook` — Paystack signed webhook
+- `/api/admin/subscriptions` — authenticated pass pricing, discounts, and payment history
 - `/api/attendance` — authenticated attendance listing
 - `/api/attendance/[id]` — authenticated attendance-record deletion
 - `/api/reports/export?format=xlsx|pdf` — authenticated exports
