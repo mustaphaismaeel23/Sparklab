@@ -1,11 +1,12 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import BrandLogo from '@/components/BrandLogo';
+import { uniqueLatestAttendanceByPerson } from '@/lib/attendance-days';
 
 type UserCategory = 'STUDENT' | 'STAFF' | 'VISITOR' | 'GUEST' | 'SUBSCRIBER';
 type SubscriptionPlan = 'DAILY' | 'WEEKLY' | 'MONTHLY';
 type Person = { id: string; username: string | null; fullName: string; phone: string; email: string | null; category: UserCategory; department: string; subscriptionPlan: SubscriptionPlan | null; subscriptionStartDate: string | null; subscriptionExpiryDate: string | null; active: boolean; registeredAt: string; daysAttended: number };
-type RecordRow = { id: string; name: string; username: string; category: UserCategory; department: string; subscriptionPlan: SubscriptionPlan | null; subscriptionStartDate: string; subscriptionExpiryDate: string; date: string; time: string; daysAttended: number; status: string; session: string };
+type RecordRow = { id: string; personId: string; name: string; username: string; category: UserCategory; department: string; subscriptionPlan: SubscriptionPlan | null; subscriptionStartDate: string; subscriptionExpiryDate: string; date: string; time: string; daysAttended: number; status: string; session: string };
 type VisitorRecord = { id: string; visitorName: string; hostName: string; date: string; time: string; session: string };
 type Session = { id: string; title: string; endsAt: string | null };
 type Tab = 'overview' | 'people' | 'attendance' | 'visitors' | 'session';
@@ -167,11 +168,11 @@ export default function AdminPage() {
     (category === 'ALL' || person.category === category) &&
     (!q || person.fullName.toLowerCase().includes(q.toLowerCase()) || (person.username ?? '').toLowerCase().includes(q.toLowerCase()))
   ), [people, q, category]);
-  const visibleRecords = useMemo(() => records.filter(record =>
+  const visibleRecords = useMemo(() => uniqueLatestAttendanceByPerson(records.filter(record =>
     (!date || record.date === date) &&
     (category === 'ALL' || record.category === category) &&
     (!q || record.name.toLowerCase().includes(q.toLowerCase()) || record.username.toLowerCase().includes(q.toLowerCase()))
-  ), [records, date, category, q]);
+  )), [records, date, category, q]);
   const visibleVisitorRecords = useMemo(() => visitorRecords.filter(record =>
     (!visitorDate || record.date === visitorDate) &&
     (!visitorQuery || record.visitorName.toLowerCase().includes(visitorQuery.toLowerCase()) || record.hostName.toLowerCase().includes(visitorQuery.toLowerCase()))
@@ -422,7 +423,7 @@ export default function AdminPage() {
         </div>
       </div>}
       {tab === 'attendance' && <div className="rounded-2xl border bg-white p-5">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-bold">Attendance records ({visibleRecords.length})</h2><p className="mt-1 text-xs text-slate-500">Updates automatically every 10 seconds.</p></div><div className="flex flex-wrap gap-2"><button onClick={() => setAttendanceRefresh(value => value + 1)} className={`${button} border`}>Refresh</button><input type="date" value={date} onChange={event => setDate(event.target.value)} className="rounded-xl border px-3 py-2 text-sm"/><input value={q} onChange={event => setQ(event.target.value)} placeholder="Search name or username" className="rounded-xl border px-3 py-2 text-sm"/><select value={category} onChange={event => setCategory(event.target.value)} className="rounded-xl border px-3 py-2 text-sm"><option value="ALL">All categories</option>{(Object.keys(categoryLabels) as UserCategory[]).map(userCategory => <option key={userCategory} value={userCategory}>{categoryPluralLabels[userCategory]}</option>)}</select></div></div>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-bold">Attendance records ({visibleRecords.length})</h2><p className="mt-1 text-xs text-slate-500">One row per person, showing their latest check-in. Choose a date to view that day. Updates every 10 seconds.</p></div><div className="flex flex-wrap gap-2"><button onClick={() => setAttendanceRefresh(value => value + 1)} className={`${button} border`}>Refresh</button><input type="date" value={date} onChange={event => setDate(event.target.value)} className="rounded-xl border px-3 py-2 text-sm"/><input value={q} onChange={event => setQ(event.target.value)} placeholder="Search name or username" className="rounded-xl border px-3 py-2 text-sm"/><select value={category} onChange={event => setCategory(event.target.value)} className="rounded-xl border px-3 py-2 text-sm"><option value="ALL">All categories</option>{(Object.keys(categoryLabels) as UserCategory[]).map(userCategory => <option key={userCategory} value={userCategory}>{categoryPluralLabels[userCategory]}</option>)}</select></div></div>
         {attendanceError && <p role="alert" className="mb-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">{attendanceError}</p>}
         <div className="mb-4 flex gap-2"><button onClick={() => void exportReport('xlsx')} className={`${button} bg-brand-navy text-white`}>Export Excel</button><button onClick={() => void exportReport('pdf')} className={`${button} border-2 border-brand-gold bg-brand-gold-soft text-brand-navy`}>Export PDF</button></div>
         <div className="overflow-x-auto"><table className="w-full text-left text-sm">

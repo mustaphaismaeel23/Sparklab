@@ -24,6 +24,15 @@ export function uniqueAttendanceCheckinsByPersonAndDay<T extends { personId: str
   });
 }
 
+export function uniqueLatestAttendanceByPerson<T extends { personId: string }>(checkins: readonly T[]) {
+  const seen = new Set<string>();
+  return checkins.filter(checkin => {
+    if (seen.has(checkin.personId)) return false;
+    seen.add(checkin.personId);
+    return true;
+  });
+}
+
 export function countAttendanceDays(checkins: readonly { checkedAt: Date }[]) {
   return new Set(checkins.map(({ checkedAt }) => getAttendanceDayKey(checkedAt))).size;
 }

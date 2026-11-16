@@ -17,6 +17,7 @@ export async function GET(request: Request) {
   const daysByPerson = countAttendanceDaysByPerson(checkins);
   return NextResponse.json({ records: uniqueRecords.map(r => ({
     id: r.id,
+    personId: r.personId,
     name: r.person.fullName,
     username: r.person.username ?? '',
     category: r.person.category,

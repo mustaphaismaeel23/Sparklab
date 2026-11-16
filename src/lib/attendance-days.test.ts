@@ -1,6 +1,6 @@
 import { equal } from 'node:assert/strict';
 import { test } from 'node:test';
-import { countAttendanceDays, countAttendanceDaysByPerson, getAttendanceDayRange, isSubscriptionActive, uniqueAttendanceCheckinsByPersonAndDay } from './attendance-days';
+import { countAttendanceDays, countAttendanceDaysByPerson, getAttendanceDayRange, isSubscriptionActive, uniqueAttendanceCheckinsByPersonAndDay, uniqueLatestAttendanceByPerson } from './attendance-days';
 
 test('counts distinct Africa/Lagos attendance dates rather than check-ins', () => {
   equal(countAttendanceDays([
@@ -34,6 +34,15 @@ test('keeps only the newest attendance check-in per person and Lagos day', () =>
     { id: 'another-day', personId: 'one', checkedAt: new Date('2026-03-12T00:30:00Z') }
   ]);
   equal(checkins.map(checkin => checkin.id).join(','), 'newest,another-person,another-day');
+});
+
+test('keeps one newest attendance record per person from newest-first records', () => {
+  const checkins = uniqueLatestAttendanceByPerson([
+    { id: 'newest', personId: 'one' },
+    { id: 'another-person', personId: 'two' },
+    { id: 'older', personId: 'one' }
+  ]);
+  equal(checkins.map(checkin => checkin.id).join(','), 'newest,another-person');
 });
 
 test('allows subscriber check-ins on inclusive start and expiry dates', () => {
